@@ -1,0 +1,5 @@
+NAME           TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)        AGE   SELECTOR
+data-loader    LoadBalancer   10.96.215.117   192.168.100.3   80:32442/TCP   2s    app=data-loader
+inference      LoadBalancer   10.96.32.18     192.168.100.2   80:31568/TCP   2s    app=inference
+param-server   LoadBalancer   10.96.164.170   192.168.100.0   80:31695/TCP   2s    app=param-server
+trainer        LoadBalancer   10.96.239.99    192.168.100.1   80:31976/TCP   2s    app=trainer

@@ -1,0 +1,24 @@
+data-loader: batch=256 shards=32
+
+data-loader: batch=256 shards=32
+
+data-loader: batch=256 shards=32
+
+inference: tps=1240 p99=12ms
+
+inference: tps=1240 p99=12ms
+
+inference: tps=1240 p99=12ms
+
+param-server: gradients synced
+
+param-server: gradients synced
+
+param-server: gradients synced
+
+trainer: epoch=42 loss=0.023
+
+trainer: epoch=42 loss=0.023
+
+trainer: epoch=42 loss=0.023
+

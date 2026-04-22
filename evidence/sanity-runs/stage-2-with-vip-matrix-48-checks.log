@@ -1,0 +1,606 @@
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 1/8: Cluster & node health[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Kubernetes version on master ──[0m
+[1;33m$[0m [1mkubectl version[0m
+  Client Version: v1.31.14
+  Kustomize Version: v5.4.2
+  Server Version: v1.31.2
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Nodes: everyone Ready? ──[0m
+[1;33m$[0m [1mkubectl get nodes -o wide[0m
+  NAME       STATUS   ROLES           AGE     VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+  master     Ready    control-plane   3h29m   v1.31.14   10.1.1.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+  worker-1   Ready    <none>          3h28m   v1.31.14   10.1.2.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+  worker-2   Ready    <none>          3h28m   v1.31.14   10.1.3.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+  worker-3   Ready    <none>          3h28m   v1.31.14   10.1.4.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Node conditions summary ──[0m
+[1;33m$[0m [1mkubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": Ready="}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}'[0m
+  master: Ready=True
+  worker-1: Ready=True
+  worker-2: Ready=True
+  worker-3: Ready=True
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── System pods healthy? ──[0m
+[1;33m$[0m [1mkubectl -n kube-system get pods -o wide | grep -vE 'Completed'[0m
+  NAME                               READY   STATUS    RESTARTS        AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+  cilium-envoy-48779                 1/1     Running   2 (172m ago)    3h28m   10.1.1.10     master     <none>           <none>
+  cilium-envoy-d42mf                 1/1     Running   2 (172m ago)    3h28m   10.1.4.10     worker-3   <none>           <none>
+  cilium-envoy-fsmdk                 1/1     Running   2 (173m ago)    3h28m   10.1.3.10     worker-2   <none>           <none>
+  cilium-envoy-gl9wh                 1/1     Running   2 (173m ago)    3h28m   10.1.2.10     worker-1   <none>           <none>
+  cilium-nmnwp                       1/1     Running   2 (173m ago)    3h28m   10.1.2.10     worker-1   <none>           <none>
+  cilium-operator-6fbcd7588f-knb24   1/1     Running   28 (9m6s ago)   3h28m   10.1.2.10     worker-1   <none>           <none>
+  cilium-q7r9p                       1/1     Running   2 (173m ago)    3h28m   10.1.3.10     worker-2   <none>           <none>
+  cilium-snxjg                       1/1     Running   2 (172m ago)    3h28m   10.1.4.10     worker-3   <none>           <none>
+  cilium-x2jqn                       1/1     Running   2 (172m ago)    3h28m   10.1.1.10     master     <none>           <none>
+  coredns-7c65d6cfc9-gtq4w           1/1     Running   2 (172m ago)    3h29m   10.10.3.202   worker-3   <none>           <none>
+  coredns-7c65d6cfc9-tvqg8           1/1     Running   2 (172m ago)    3h29m   10.10.3.146   worker-3   <none>           <none>
+  etcd-master                        1/1     Running   4 (172m ago)    3h29m   10.1.1.10     master     <none>           <none>
+  hubble-relay-7b48fbdf5f-9qjv8      1/1     Running   2 (172m ago)    3h28m   10.10.3.113   worker-3   <none>           <none>
+  kube-apiserver-master              1/1     Running   4 (172m ago)    3h29m   10.1.1.10     master     <none>           <none>
+  kube-controller-manager-master     1/1     Running   4 (172m ago)    3h29m   10.1.1.10     master     <none>           <none>
+  kube-scheduler-master              1/1     Running   4 (172m ago)    3h29m   10.1.1.10     master     <none>           <none>
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 2/8: Cilium DaemonSet & agent status[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Cilium DaemonSet rollout state ──[0m
+[1;33m$[0m [1mkubectl -n kube-system get ds cilium -o wide[0m
+  NAME     DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE     CONTAINERS     IMAGES                                                                                                  SELECTOR
+  cilium   4         4         4       4            4           kubernetes.io/os=linux   3h28m   cilium-agent   quay.io/cilium/cilium:v1.18.4@sha256:49d87af187eeeb9e9e3ec2bc6bd372261a0b5cb2d845659463ba7cc10fe9e45f   k8s-app=cilium
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Cilium agent pods (one per node) ──[0m
+[1;33m$[0m [1mkubectl -n kube-system get pods -l k8s-app=cilium -o wide[0m
+  NAME           READY   STATUS    RESTARTS       AGE     IP          NODE       NOMINATED NODE   READINESS GATES
+  cilium-nmnwp   1/1     Running   2 (173m ago)   3h28m   10.1.2.10   worker-1   <none>           <none>
+  cilium-q7r9p   1/1     Running   2 (173m ago)   3h28m   10.1.3.10   worker-2   <none>           <none>
+  cilium-snxjg   1/1     Running   2 (172m ago)   3h28m   10.1.4.10   worker-3   <none>           <none>
+  cilium-x2jqn   1/1     Running   2 (172m ago)   3h28m   10.1.1.10   master     <none>           <none>
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Cilium agent version + kube-proxy replacement status ──[0m
+[1;33m$[0m [1mcdbg status --brief || kubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg status --brief[0m
+  unknown flag: --brief
+  OK
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── NET_BIND_SERVICE capability on cilium-agent container (required for BGP port 179) ──[0m
+[1;33m$[0m [1mkubectl -n kube-system get ds cilium -o json     | jq -r '.spec.template.spec.containers[] | select(.name=="cilium-agent") | .securityContext.capabilities.add[]'[0m
+  CHOWN
+  KILL
+  NET_ADMIN
+  NET_RAW
+  IPC_LOCK
+  SYS_MODULE
+  SYS_ADMIN
+  SYS_RESOURCE
+  DAC_OVERRIDE
+  FOWNER
+  SETGID
+  SETUID
+  NET_BIND_SERVICE
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 3/8: BGP peer sessions across the node mesh[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── BGP peers on master ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp peers[0m
+  Local AS   Peer AS   Peer Address    Session       Uptime   Family         Received   Advertised
+  65201      65202     10.1.2.10:179   established   8m6s     ipv4/unicast   4          5
+  65201      65203     10.1.3.10:179   established   8m4s     ipv4/unicast   4          5
+  65201      65204     10.1.4.10:179   established   8m16s    ipv4/unicast   4          5
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── BGP peers on worker-1 ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-nmnwp -c cilium-agent -- cilium-dbg bgp peers[0m
+  Local AS   Peer AS   Peer Address    Session       Uptime   Family         Received   Advertised
+  65202      65201     10.1.1.10:179   established   8m6s     ipv4/unicast   4          5
+  65202      65203     10.1.3.10:179   established   8m1s     ipv4/unicast   4          5
+  65202      65204     10.1.4.10:179   established   8m17s    ipv4/unicast   4          5
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── BGP peers on worker-2 ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-q7r9p -c cilium-agent -- cilium-dbg bgp peers[0m
+  Local AS   Peer AS   Peer Address    Session       Uptime   Family         Received   Advertised
+  65203      65201     10.1.1.10:179   established   8m4s     ipv4/unicast   4          5
+  65203      65202     10.1.2.10:179   established   8m1s     ipv4/unicast   4          5
+  65203      65204     10.1.4.10:179   established   8m7s     ipv4/unicast   4          5
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── BGP peers on worker-3 ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-snxjg -c cilium-agent -- cilium-dbg bgp peers[0m
+  Local AS   Peer AS   Peer Address    Session       Uptime   Family         Received   Advertised
+  65204      65201     10.1.1.10:179   established   8m16s    ipv4/unicast   4          5
+  65204      65202     10.1.2.10:179   established   8m17s    ipv4/unicast   4          5
+  65204      65203     10.1.3.10:179   established   8m7s     ipv4/unicast   4          5
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Expected: 3 peers per node, Session=established, Received=4, Advertised=5 ──[0m
+[1mTotal established sessions across all nodes: 12/12[0m
+[1;32m  ✓ full mesh established[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 4/8: BGP RIB (Routing Information Base)[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Local routes available to advertise (master view) ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65201     192.168.100.0/32   0.0.0.0   2h51m55s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.1/32   0.0.0.0   57m14s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.2/32   0.0.0.0   2h51m55s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.3/32   0.0.0.0   57m4s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Routes advertised from master to each peer ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp routes advertised ipv4 unicast[0m
+  VRouter   Peer        Prefix             NextHop     Age        Attrs
+  65201     10.1.2.10   192.168.100.0/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.2.10   192.168.100.1/32   10.1.1.10   57m14s     [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.2.10   192.168.100.2/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.2.10   192.168.100.3/32   10.1.1.10   57m4s      [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.3.10   192.168.100.0/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.3.10   192.168.100.1/32   10.1.1.10   57m14s     [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.3.10   192.168.100.2/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.3.10   192.168.100.3/32   10.1.1.10   57m4s      [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.4.10   192.168.100.0/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.4.10   192.168.100.1/32   10.1.1.10   57m14s     [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.4.10   192.168.100.2/32   10.1.1.10   2h51m55s   [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+  65201     10.1.4.10   192.168.100.3/32   10.1.1.10   57m4s      [{Origin: i} {AsPath: 65201} {Nexthop: 10.1.1.10}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 4b/8: VIP propagation matrix (inbound RIB per peer)[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── master  (10.1.1.10  AS 65201) ──[0m
+[1m  >>> received from worker-1 (10.1.2.10, AS 65202)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.2.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65201     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-2 (10.1.3.10, AS 65203)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.3.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65201     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-3 (10.1.4.10, AS 65204)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.4.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65201     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── worker-1  (10.1.2.10  AS 65202) ──[0m
+[1m  >>> received from master (10.1.1.10, AS 65201)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-nmnwp -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.1.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65202     192.168.100.0/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.2/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-2 (10.1.3.10, AS 65203)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-nmnwp -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.3.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65202     192.168.100.0/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.2/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-3 (10.1.4.10, AS 65204)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-nmnwp -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.4.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65202     192.168.100.0/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.2/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65202     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── worker-2  (10.1.3.10  AS 65203) ──[0m
+[1m  >>> received from master (10.1.1.10, AS 65201)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-q7r9p -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.1.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65203     192.168.100.0/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.1/32   0.0.0.0   57m15s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.2/32   0.0.0.0   2h51m43s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.3/32   0.0.0.0   57m5s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-1 (10.1.2.10, AS 65202)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-q7r9p -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.2.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65203     192.168.100.0/32   0.0.0.0   2h51m44s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.1/32   0.0.0.0   57m16s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.2/32   0.0.0.0   2h51m44s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.3/32   0.0.0.0   57m6s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-3 (10.1.4.10, AS 65204)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-q7r9p -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.4.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65203     192.168.100.0/32   0.0.0.0   2h51m44s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.1/32   0.0.0.0   57m16s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.2/32   0.0.0.0   2h51m44s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65203     192.168.100.3/32   0.0.0.0   57m6s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── worker-3  (10.1.4.10  AS 65204) ──[0m
+[1m  >>> received from master (10.1.1.10, AS 65201)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-snxjg -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.1.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65204     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.1/32   0.0.0.0   57m16s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.3/32   0.0.0.0   57m6s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-1 (10.1.2.10, AS 65202)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-snxjg -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.2.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65204     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.1/32   0.0.0.0   57m16s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.3/32   0.0.0.0   57m6s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+[1m  >>> received from worker-2 (10.1.3.10, AS 65203)[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-snxjg -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.3.10[0m
+  VRouter   Prefix             NextHop   Age        Attrs
+  65204     192.168.100.0/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.1/32   0.0.0.0   57m16s     [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.2/32   0.0.0.0   2h51m56s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65204     192.168.100.3/32   0.0.0.0   57m6s      [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Totals check: each node must receive 12 VIPs (4 VIPs from 3 peers each) ──[0m
+[1;32m  ✓ master     received 12 VIPs[0m
+[1;32m  ✓ worker-1   received 12 VIPs[0m
+[1;32m  ✓ worker-2   received 12 VIPs[0m
+[1;32m  ✓ worker-3   received 12 VIPs[0m
+[1;32m[1m  ✓ GRAND TOTAL: 48 / 48 inbound VIP routes[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 4c/8: Live BGP withdraw + restore demo[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── BEFORE - baseline (expect Received=4 on every session) ──[0m
+[1;33m$[0m [1mcilium bgp peers[0m
+  Node       Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+  master     65201      65202     10.1.2.10      established     8m11s    ipv4/unicast   4          5    
+             65201      65203     10.1.3.10      established     8m9s     ipv4/unicast   4          5    
+             65201      65204     10.1.4.10      established     8m21s    ipv4/unicast   4          5    
+  worker-1   65202      65201     10.1.1.10      established     8m11s    ipv4/unicast   4          5    
+             65202      65203     10.1.3.10      established     8m6s     ipv4/unicast   4          5    
+             65202      65204     10.1.4.10      established     8m22s    ipv4/unicast   4          5    
+  worker-2   65203      65201     10.1.1.10      established     8m9s     ipv4/unicast   4          5    
+             65203      65202     10.1.2.10      established     8m6s     ipv4/unicast   4          5    
+             65203      65204     10.1.4.10      established     8m12s    ipv4/unicast   4          5    
+  worker-3   65204      65201     10.1.1.10      established     8m21s    ipv4/unicast   4          5    
+             65204      65202     10.1.2.10      established     8m22s    ipv4/unicast   4          5    
+             65204      65203     10.1.3.10      established     8m12s    ipv4/unicast   4          5    
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Deleting trainer service (VIP 192.168.100.1) ──[0m
+[1;33m$[0m [1mkubectl -n ai-training delete svc trainer[0m
+  service "trainer" deleted
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── AFTER delete (expect Received=3 on every session) ──[0m
+[1;33m$[0m [1mcilium bgp peers[0m
+  Node       Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+  master     65201      65202     10.1.2.10      established     8m15s    ipv4/unicast   3          4    
+             65201      65203     10.1.3.10      established     8m13s    ipv4/unicast   3          4    
+             65201      65204     10.1.4.10      established     8m25s    ipv4/unicast   3          4    
+  worker-1   65202      65201     10.1.1.10      established     8m15s    ipv4/unicast   3          4    
+             65202      65203     10.1.3.10      established     8m10s    ipv4/unicast   3          4    
+             65202      65204     10.1.4.10      established     8m26s    ipv4/unicast   3          4    
+  worker-2   65203      65201     10.1.1.10      established     8m13s    ipv4/unicast   3          4    
+             65203      65202     10.1.2.10      established     8m10s    ipv4/unicast   3          4    
+             65203      65204     10.1.4.10      established     8m16s    ipv4/unicast   3          4    
+  worker-3   65204      65201     10.1.1.10      established     8m25s    ipv4/unicast   3          4    
+             65204      65202     10.1.2.10      established     8m26s    ipv4/unicast   3          4    
+             65204      65203     10.1.3.10      established     8m16s    ipv4/unicast   3          4    
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Master's inbound RIB from worker-1 - trainer VIP should be absent ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec cilium-x2jqn -c cilium-agent -- cilium-dbg bgp routes available ipv4 unicast peer 10.1.2.10[0m
+  VRouter   Prefix             NextHop   Age       Attrs
+  65201     192.168.100.0/32   0.0.0.0   2h52m3s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.2/32   0.0.0.0   2h52m3s   [{Origin: i} {Nexthop: 0.0.0.0}]
+  65201     192.168.100.3/32   0.0.0.0   57m12s    [{Origin: i} {Nexthop: 0.0.0.0}]
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Restoring trainer service ──[0m
+[1;33m$[0m [1mkubectl apply -f /home/user/k8s_cilium/k8s-cilium-lab/manifests/ai-workloads.yaml[0m
+  namespace/ai-training unchanged
+  deployment.apps/param-server unchanged
+  service/param-server unchanged
+  deployment.apps/trainer unchanged
+  service/trainer created
+  deployment.apps/inference unchanged
+  service/inference unchanged
+  deployment.apps/data-loader unchanged
+  service/data-loader unchanged
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── RESTORED - back to baseline (expect Received=4 on every session) ──[0m
+[1;33m$[0m [1mcilium bgp peers[0m
+  Node       Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+  master     65201      65202     10.1.2.10      established     8m19s    ipv4/unicast   4          5    
+             65201      65203     10.1.3.10      established     8m17s    ipv4/unicast   4          5    
+             65201      65204     10.1.4.10      established     8m29s    ipv4/unicast   4          5    
+  worker-1   65202      65201     10.1.1.10      established     8m19s    ipv4/unicast   4          5    
+             65202      65203     10.1.3.10      established     8m14s    ipv4/unicast   4          5    
+             65202      65204     10.1.4.10      established     8m30s    ipv4/unicast   4          5    
+  worker-2   65203      65201     10.1.1.10      established     8m17s    ipv4/unicast   4          5    
+             65203      65202     10.1.2.10      established     8m14s    ipv4/unicast   4          5    
+             65203      65204     10.1.4.10      established     8m20s    ipv4/unicast   4          5    
+  worker-3   65204      65201     10.1.1.10      established     8m29s    ipv4/unicast   4          5    
+             65204      65202     10.1.2.10      established     8m30s    ipv4/unicast   4          5    
+             65204      65203     10.1.3.10      established     8m20s    ipv4/unicast   4          5    
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 4d/8: Wire-level BGP UPDATE capture[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Starting tcpdump on ens4 for TCP/179 (PSH-flagged packets only) ──[0m
+
+[1m[1;36m── Triggering BGP UPDATE and WITHDRAW by bouncing data-loader service ──[0m
+[1;33m$[0m [1mkubectl -n ai-training delete svc data-loader[0m
+  service "data-loader" deleted
+[1;32m  ✓ exit 0[0m
+[1;33m$[0m [1mkubectl apply -f /home/user/k8s_cilium/k8s-cilium-lab/manifests/ai-workloads.yaml[0m
+  namespace/ai-training unchanged
+  deployment.apps/param-server unchanged
+  service/param-server unchanged
+  deployment.apps/trainer unchanged
+  service/trainer unchanged
+  deployment.apps/inference unchanged
+  service/inference unchanged
+  deployment.apps/data-loader unchanged
+  service/data-loader created
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Decoded BGP messages from wire capture ──[0m
+[1;33m$[0m [1msudo tcpdump -r /tmp/bgp-update-33242.pcap -nn -v 'tcp port 179' 2>&1 | grep -E 'Update Message|NLRI|192.168.100|Withdrawn' | head -30[0m
+  	Update Message (2), length: 58
+  	    192.168.100.1/32
+  	    192.168.100.0/32
+  	    192.168.100.2/32
+  	Update Message (2), length: 58
+  	    192.168.100.1/32
+  	    192.168.100.0/32
+  	    192.168.100.2/32
+  	Update Message (2), length: 23
+  	  End-of-Rib Marker (empty NLRI)
+  	Update Message (2), length: 23
+  	  End-of-Rib Marker (empty NLRI)
+  	Update Message (2), length: 28
+  	  Withdrawn routes:
+  	    192.168.100.3/32
+  	  End-of-Rib Marker (empty NLRI)
+  	Update Message (2), length: 28
+  	  Withdrawn routes:
+  	    192.168.100.3/32
+  	  End-of-Rib Marker (empty NLRI)
+  	Update Message (2), length: 58
+  	    192.168.100.1/32
+  	    192.168.100.0/32
+  	    192.168.100.2/32
+  	Update Message (2), length: 23
+  	  End-of-Rib Marker (empty NLRI)
+  	Update Message (2), length: 28
+  	  Withdrawn routes:
+  	    192.168.100.3/32
+  	  End-of-Rib Marker (empty NLRI)
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 5/8: Kubernetes LoadBalancer services[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Services in the ai-training namespace ──[0m
+[1;33m$[0m [1mkubectl -n ai-training get svc -o wide[0m
+  NAME           TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)        AGE     SELECTOR
+  data-loader    LoadBalancer   10.96.155.34    192.168.100.3   80:30237/TCP   3s      app=data-loader
+  inference      LoadBalancer   10.96.32.18     192.168.100.2   80:31568/TCP   3h28m   app=inference
+  param-server   LoadBalancer   10.96.164.170   192.168.100.0   80:31695/TCP   3h28m   app=param-server
+  trainer        LoadBalancer   10.96.132.48    192.168.100.1   80:30759/TCP   13s     app=trainer
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── All pods in ai-training (running?) ──[0m
+[1;33m$[0m [1mkubectl -n ai-training get pods -o wide[0m
+  NAME                            READY   STATUS    RESTARTS       AGE     IP            NODE       NOMINATED NODE   READINESS GATES
+  data-loader-54bc797bdd-4m9vz    1/1     Running   2 (173m ago)   3h28m   10.10.2.88    worker-2   <none>           <none>
+  data-loader-54bc797bdd-hnp8f    1/1     Running   2 (172m ago)   3h28m   10.10.3.149   worker-3   <none>           <none>
+  data-loader-54bc797bdd-lwzlr    1/1     Running   2 (173m ago)   3h28m   10.10.1.204   worker-1   <none>           <none>
+  inference-f767f98f9-g7hzv       1/1     Running   2 (173m ago)   3h28m   10.10.2.169   worker-2   <none>           <none>
+  inference-f767f98f9-zbcnk       1/1     Running   2 (173m ago)   3h28m   10.10.1.14    worker-1   <none>           <none>
+  param-server-7f575f6597-pxwr4   1/1     Running   2 (173m ago)   3h28m   10.10.2.8     worker-2   <none>           <none>
+  param-server-7f575f6597-q4tzt   1/1     Running   2 (172m ago)   3h28m   10.10.3.12    worker-3   <none>           <none>
+  param-server-7f575f6597-qxvrf   1/1     Running   2 (173m ago)   3h28m   10.10.1.73    worker-1   <none>           <none>
+  trainer-78d54fc5-8hgkz          1/1     Running   2 (173m ago)   3h28m   10.10.1.79    worker-1   <none>           <none>
+  trainer-78d54fc5-gtrzm          1/1     Running   2 (172m ago)   3h28m   10.10.0.158   master     <none>           <none>
+  trainer-78d54fc5-mgrpl          1/1     Running   2 (173m ago)   3h28m   10.10.2.57    worker-2   <none>           <none>
+  trainer-78d54fc5-rdjtr          1/1     Running   2 (172m ago)   3h28m   10.10.3.223   worker-3   <none>           <none>
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── CiliumLoadBalancerIPPool state ──[0m
+[1;33m$[0m [1mkubectl get ciliumloadbalancerippool -o wide[0m
+  NAME          DISABLED   CONFLICTING   IPS AVAILABLE   AGE
+  ai-vip-pool   false      False         252             3h28m
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 6/8: Cilium LB service map & eBPF backends[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Cilium service list - VIPs should resolve to pod backends ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg service list | grep -E 'Service|192.168.100|LoadBalancer' | head -30[0m
+  ID   Frontend                Service Type   Backend                              
+  13   192.168.100.2:80/TCP    LoadBalancer   1 => 10.10.1.14:8080/TCP (active)    
+  17   192.168.100.0:80/TCP    LoadBalancer   1 => 10.10.1.73:8080/TCP (active)    
+  42   192.168.100.1:80/TCP    LoadBalancer   1 => 10.10.0.158:8080/TCP (active)   
+  46   192.168.100.3:80/TCP    LoadBalancer   1 => 10.10.1.204:8080/TCP (active)   
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── eBPF LB map entries for VIPs (first 10) ──[0m
+[1;33m$[0m [1mkubectl -n kube-system exec ds/cilium -c cilium-agent -- cilium-dbg bpf lb list | grep -E '192.168.100|REVNAT|SERVICE' | head -20[0m
+  SERVICE ADDRESS             BACKEND ADDRESS (REVNAT_ID) (SLOT)
+  192.168.100.0:80/TCP (1)    10.10.1.73:8080/TCP (17) (1)                                  
+  192.168.100.0:80/TCP (3)    10.10.3.12:8080/TCP (17) (3)                                  
+  192.168.100.1:80/TCP (4)    10.10.3.223:8080/TCP (42) (4)                                 
+  192.168.100.1:80/TCP (2)    10.10.1.79:8080/TCP (42) (2)                                  
+  192.168.100.1:80/TCP (1)    10.10.0.158:8080/TCP (42) (1)                                 
+  192.168.100.1:80/TCP (0)    0.0.0.0:0 (42) (0) [LoadBalancer]                             
+  192.168.100.1:80/TCP (3)    10.10.2.57:8080/TCP (42) (3)                                  
+  192.168.100.3:80/TCP (1)    10.10.1.204:8080/TCP (46) (1)                                 
+  192.168.100.3:80/TCP (0)    0.0.0.0:0 (46) (0) [LoadBalancer]                             
+  192.168.100.3:80/TCP (3)    10.10.3.149:8080/TCP (46) (3)                                 
+  192.168.100.0:80/TCP (2)    10.10.2.8:8080/TCP (17) (2)                                   
+  192.168.100.2:80/TCP (0)    0.0.0.0:0 (13) (0) [LoadBalancer]                             
+  192.168.100.3:80/TCP (2)    10.10.2.88:8080/TCP (46) (2)                                  
+  192.168.100.2:80/TCP (1)    10.10.1.14:8080/TCP (13) (1)                                  
+  192.168.100.0:80/TCP (0)    0.0.0.0:0 (17) (0) [LoadBalancer]                             
+  192.168.100.2:80/TCP (2)    10.10.2.169:8080/TCP (13) (2)                                 
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 7/8: End-to-end data-plane tests[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Collect all VIPs ──[0m
+  data-loader=192.168.100.3
+  inference=192.168.100.2
+  param-server=192.168.100.0
+  trainer=192.168.100.1
+
+[1m[1;36m── Test A: curl every VIP from master host ──[0m
+[1m  >>> data-loader @ 192.168.100.3[0m
+[1;33m$[0m [1mcurl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.3/[0m
+  HTTP 200 | connect 0.004265s | total 0.007716s
+[1;32m  ✓ exit 0[0m
+[1m  >>> inference @ 192.168.100.2[0m
+[1;33m$[0m [1mcurl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.2/[0m
+  HTTP 200 | connect 0.003596s | total 0.006284s
+[1;32m  ✓ exit 0[0m
+[1m  >>> param-server @ 192.168.100.0[0m
+[1;33m$[0m [1mcurl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.0/[0m
+  HTTP 200 | connect 0.002232s | total 0.004775s
+[1;32m  ✓ exit 0[0m
+[1m  >>> trainer @ 192.168.100.1[0m
+[1;33m$[0m [1mcurl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.1/[0m
+  HTTP 200 | connect 0.002729s | total 0.006332s
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Test B: curl every VIP from worker-3 host (cross-node via fabric) ──[0m
+[1m  >>> worker-3 -> data-loader @ 192.168.100.3[0m
+[1;33m$[0m [1mssh -o StrictHostKeyChecking=no user@10.1.4.10 "curl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.3/"[0m
+  HTTP 200 | connect 0.003336s | total 0.007342s
+[1;32m  ✓ exit 0[0m
+[1m  >>> worker-3 -> inference @ 192.168.100.2[0m
+[1;33m$[0m [1mssh -o StrictHostKeyChecking=no user@10.1.4.10 "curl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.2/"[0m
+  HTTP 200 | connect 0.004259s | total 0.007749s
+[1;32m  ✓ exit 0[0m
+[1m  >>> worker-3 -> param-server @ 192.168.100.0[0m
+[1;33m$[0m [1mssh -o StrictHostKeyChecking=no user@10.1.4.10 "curl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.0/"[0m
+  HTTP 200 | connect 0.001578s | total 0.003166s
+[1;32m  ✓ exit 0[0m
+[1m  >>> worker-3 -> trainer @ 192.168.100.1[0m
+[1;33m$[0m [1mssh -o StrictHostKeyChecking=no user@10.1.4.10 "curl -s -o /dev/null -w 'HTTP %{http_code} | connect %{time_connect}s | total %{time_total}s\n' --max-time 5 http://192.168.100.1/"[0m
+  HTTP 200 | connect 0.004057s | total 0.007648s
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Test C: pod -> VIP from a pod on worker-1 ──[0m
+[1;33m$[0m [1mkubectl apply -f /tmp/test-client.yaml[0m
+  pod/sanity-client created
+[1;32m  ✓ exit 0[0m
+[1;33m$[0m [1mkubectl wait --for=condition=Ready pod/sanity-client --timeout=60s[0m
+  pod/sanity-client condition met
+[1;32m  ✓ exit 0[0m
+[1m  >>> pod-on-worker-1 -> data-loader @ 192.168.100.3[0m
+[1;33m$[0m [1mkubectl exec sanity-client -- curl -s -o /dev/null -w 'HTTP %{http_code} | total %{time_total}s\n' --max-time 5 http://192.168.100.3/[0m
+  HTTP 200 | total 0.009064s
+[1;32m  ✓ exit 0[0m
+[1m  >>> pod-on-worker-1 -> inference @ 192.168.100.2[0m
+[1;33m$[0m [1mkubectl exec sanity-client -- curl -s -o /dev/null -w 'HTTP %{http_code} | total %{time_total}s\n' --max-time 5 http://192.168.100.2/[0m
+  HTTP 200 | total 0.004226s
+[1;32m  ✓ exit 0[0m
+[1m  >>> pod-on-worker-1 -> param-server @ 192.168.100.0[0m
+[1;33m$[0m [1mkubectl exec sanity-client -- curl -s -o /dev/null -w 'HTTP %{http_code} | total %{time_total}s\n' --max-time 5 http://192.168.100.0/[0m
+  HTTP 200 | total 0.004078s
+[1;32m  ✓ exit 0[0m
+[1m  >>> pod-on-worker-1 -> trainer @ 192.168.100.1[0m
+[1;33m$[0m [1mkubectl exec sanity-client -- curl -s -o /dev/null -w 'HTTP %{http_code} | total %{time_total}s\n' --max-time 5 http://192.168.100.1/[0m
+  HTTP 200 | total 0.000698s
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Test D: pod-to-pod across fabric (VXLAN over ens4) ──[0m
+  Target: trainer pod on worker-3 @ 10.10.3.223
+  Source: sanity-client on worker-1
+[1;33m$[0m [1mkubectl exec sanity-client -- curl -s -o /dev/null -w 'HTTP %{http_code} | total %{time_total}s\n' --max-time 5 http://10.10.3.223:8080/[0m
+  HTTP 200 | total 0.007071s
+[1;32m  ✓ exit 0[0m
+[1;33m$[0m [1mkubectl delete pod sanity-client --wait=false[0m
+  pod "sanity-client" deleted
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Phase 8/8: Underlay fabric reachability[0m
+[1m[1;34m============================================================[0m
+
+[1m[1;36m── Traceroute master -> worker-1 on TCP/179 (shows hop count) ──[0m
+[1;33m$[0m [1msudo traceroute -T -p 179 -q 1 -m 5 10.1.2.10[0m
+  traceroute to 10.1.2.10 (10.1.2.10), 5 hops max, 60 byte packets
+   1  10.1.1.1 (10.1.1.1)  0.469 ms
+   2  10.1.2.1 (10.1.2.1)  2.592 ms
+   3  worker-1 (10.1.2.10)  3.669 ms
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Jumbo frame DF probe master -> worker-3 (8972 bytes) ──[0m
+[1;33m$[0m [1mping -M do -s 8972 -c 2 10.1.4.10[0m
+  PING 10.1.4.10 (10.1.4.10) 8972(9000) bytes of data.
+  8980 bytes from 10.1.4.10: icmp_seq=1 ttl=62 time=4.60 ms
+  8980 bytes from 10.1.4.10: icmp_seq=2 ttl=62 time=5.69 ms
+  
+  --- 10.1.4.10 ping statistics ---
+  2 packets transmitted, 2 received, 0% packet loss, time 1002ms
+  rtt min/avg/max/mdev = 4.602/5.145/5.689/0.543 ms
+[1;32m  ✓ exit 0[0m
+
+[1m[1;36m── Ensure master can reach every worker on TCP/179 ──[0m
+[1m  >>> master -> 10.1.2.10:179[0m
+[1;33m$[0m [1mtimeout 3 bash -c '(echo > /dev/tcp/10.1.2.10/179) && echo OPEN || echo CLOSED'[0m
+  OPEN
+[1;32m  ✓ exit 0[0m
+[1m  >>> master -> 10.1.3.10:179[0m
+[1;33m$[0m [1mtimeout 3 bash -c '(echo > /dev/tcp/10.1.3.10/179) && echo OPEN || echo CLOSED'[0m
+  OPEN
+[1;32m  ✓ exit 0[0m
+[1m  >>> master -> 10.1.4.10:179[0m
+[1;33m$[0m [1mtimeout 3 bash -c '(echo > /dev/tcp/10.1.4.10/179) && echo OPEN || echo CLOSED'[0m
+  OPEN
+[1;32m  ✓ exit 0[0m
+
+[1m[1;34m============================================================[0m
+[1m[1;34m Summary[0m
+[1m[1;34m============================================================[0m
+[1mRan 62 checks: [1;32m62 passed[0m, [1;31m0 failed[0m
+[1;32m[1m  ALL GOOD - lab is end-to-end healthy[0m
+

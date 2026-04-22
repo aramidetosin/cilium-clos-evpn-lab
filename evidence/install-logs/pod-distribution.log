@@ -1,0 +1,13 @@
+NAME                            READY   STATUS    RESTARTS   AGE   IP            NODE       NOMINATED NODE   READINESS GATES
+data-loader-54bc797bdd-4m9vz    1/1     Running   0          2s    10.10.2.37    worker-2   <none>           <none>
+data-loader-54bc797bdd-hnp8f    1/1     Running   0          2s    10.10.3.101   worker-3   <none>           <none>
+data-loader-54bc797bdd-lwzlr    1/1     Running   0          2s    10.10.1.4     worker-1   <none>           <none>
+inference-f767f98f9-g7hzv       1/1     Running   0          2s    10.10.2.50    worker-2   <none>           <none>
+inference-f767f98f9-zbcnk       1/1     Running   0          2s    10.10.1.88    worker-1   <none>           <none>
+param-server-7f575f6597-pxwr4   1/1     Running   0          2s    10.10.2.205   worker-2   <none>           <none>
+param-server-7f575f6597-q4tzt   1/1     Running   0          2s    10.10.3.203   worker-3   <none>           <none>
+param-server-7f575f6597-qxvrf   1/1     Running   0          2s    10.10.1.89    worker-1   <none>           <none>
+trainer-78d54fc5-8hgkz          1/1     Running   0          2s    10.10.1.184   worker-1   <none>           <none>
+trainer-78d54fc5-gtrzm          1/1     Running   0          2s    10.10.0.207   master     <none>           <none>
+trainer-78d54fc5-mgrpl          1/1     Running   0          2s    10.10.2.49    worker-2   <none>           <none>
+trainer-78d54fc5-rdjtr          1/1     Running   0          2s    10.10.3.11    worker-3   <none>           <none>

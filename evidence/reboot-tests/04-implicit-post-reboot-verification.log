@@ -1,0 +1,70 @@
+=== Host config (should be identical before/after reboot) ===
+
+--- netplan ---
+total 16
+drwxr-xr-x   2 root root 4096 Apr 22 11:19 .
+drwxr-xr-x 111 root root 4096 Apr 22 12:57 ..
+-rw-------   1 root root  253 Mar  6 06:31 50-cloud-init.yaml
+-rw-------   1 root root  301 Apr 22 11:19 60-fabric.yaml
+
+--- sysctl k8s ---
+net.ipv4.ip_forward           = 1
+net.bridge.bridge-nf-call-iptables  = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+
+--- modules-load ---
+overlay
+br_netfilter
+
+--- fstab swap ---
+#/swap.img	none	swap	sw	0	0
+
+--- kubernetes manifests (static pods) ---
+total 24
+drwx------ 2 root root 4096 Apr 22 12:57 .
+drwxr-xr-x 4 root root 4096 Apr 22 12:57 ..
+-rw------- 1 root root 2517 Apr 22 12:57 etcd.yaml
+-rw------- 1 root root 3867 Apr 22 12:57 kube-apiserver.yaml
+-rw------- 1 root root 3396 Apr 22 12:57 kube-controller-manager.yaml
+-rw------- 1 root root 1463 Apr 22 12:57 kube-scheduler.yaml
+
+--- enabled services ---
+  containerd   enabled=enabled active=active
+  kubelet      enabled=enabled active=active
+
+=== Cluster state (should match after ~90s post-reboot) ===
+NAME       STATUS   ROLES           AGE   VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+master     Ready    control-plane   34m   v1.31.14   10.1.1.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+worker-1   Ready    <none>          34m   v1.31.14   10.1.2.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+worker-2   Ready    <none>          34m   v1.31.14   10.1.3.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+worker-3   Ready    <none>          34m   v1.31.14   10.1.4.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+
+NAME           READY   STATUS    RESTARTS        AGE   IP          NODE       NOMINATED NODE   READINESS GATES
+cilium-nmnwp   1/1     Running   1 (4m59s ago)   34m   10.1.2.10   worker-1   <none>           <none>
+cilium-q7r9p   1/1     Running   1 (4m58s ago)   34m   10.1.3.10   worker-2   <none>           <none>
+cilium-snxjg   1/1     Running   1 (3m29s ago)   34m   10.1.4.10   worker-3   <none>           <none>
+cilium-x2jqn   1/1     Running   1 (4m58s ago)   34m   10.1.1.10   master     <none>           <none>
+
+Node       Local AS   Peer AS   Peer Address   Session State   Uptime   Family         Received   Advertised
+master     65201      65202     10.1.2.10      established     4m46s    ipv4/unicast   4          5    
+           65201      65203     10.1.3.10      established     4m46s    ipv4/unicast   4          5    
+           65201      65204     10.1.4.10      established     3m19s    ipv4/unicast   4          5    
+worker-1   65202      65201     10.1.1.10      established     4m46s    ipv4/unicast   4          5    
+           65202      65203     10.1.3.10      established     4m46s    ipv4/unicast   4          5    
+           65202      65204     10.1.4.10      established     3m19s    ipv4/unicast   4          5    
+worker-2   65203      65201     10.1.1.10      established     4m46s    ipv4/unicast   4          5    
+           65203      65202     10.1.2.10      established     4m46s    ipv4/unicast   4          5    
+           65203      65204     10.1.4.10      established     3m19s    ipv4/unicast   4          5    
+worker-3   65204      65201     10.1.1.10      established     3m18s    ipv4/unicast   4          5    
+           65204      65202     10.1.2.10      established     3m18s    ipv4/unicast   4          5    
+           65204      65203     10.1.3.10      established     3m19s    ipv4/unicast   4          5    
+
+NAME           TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)        AGE   SELECTOR
+data-loader    LoadBalancer   10.96.228.155   192.168.100.3   80:30790/TCP   45s   app=data-loader
+inference      LoadBalancer   10.96.32.18     192.168.100.2   80:31568/TCP   33m   app=inference
+param-server   LoadBalancer   10.96.164.170   192.168.100.0   80:31695/TCP   33m   app=param-server
+trainer        LoadBalancer   10.96.246.7     192.168.100.1   80:32558/TCP   55s   app=trainer
+
+=== Gotcha check ===
+--- Stray KUBECONFIG exports? ---
+  clean

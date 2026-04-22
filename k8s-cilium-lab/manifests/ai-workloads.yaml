@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ai-training
+  labels:
+    purpose: poc
+---
+# --- Parameter Server ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: param-server
+  namespace: ai-training
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: param-server}
+  template:
+    metadata:
+      labels: {app: param-server, role: ai-training}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector: {matchLabels: {app: param-server}}
+      containers:
+      - name: app
+        image: hashicorp/http-echo:1.0
+        args: ["-listen=:8080","-text=param-server: gradients synced"]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 50m, memory: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: param-server
+  namespace: ai-training
+  labels: {bgp-announce: "true"}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  selector: {app: param-server}
+  ports: [{port: 80, targetPort: 8080, name: http}]
+---
+# --- Trainer ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trainer
+  namespace: ai-training
+spec:
+  replicas: 4
+  selector:
+    matchLabels: {app: trainer}
+  template:
+    metadata:
+      labels: {app: trainer, role: ai-training}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector: {matchLabels: {app: trainer}}
+      containers:
+      - name: app
+        image: hashicorp/http-echo:1.0
+        args: ["-listen=:8080","-text=trainer: epoch=42 loss=0.023"]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 50m, memory: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trainer
+  namespace: ai-training
+  labels: {bgp-announce: "true"}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  selector: {app: trainer}
+  ports: [{port: 80, targetPort: 8080}]
+---
+# --- Inference ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+  namespace: ai-training
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: inference}
+  template:
+    metadata:
+      labels: {app: inference, role: ai-training}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector: {matchLabels: {app: inference}}
+      containers:
+      - name: app
+        image: hashicorp/http-echo:1.0
+        args: ["-listen=:8080","-text=inference: tps=1240 p99=12ms"]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 50m, memory: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference
+  namespace: ai-training
+  labels: {bgp-announce: "true"}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  selector: {app: inference}
+  ports: [{port: 80, targetPort: 8080}]
+---
+# --- Data Loader ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-loader
+  namespace: ai-training
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: data-loader}
+  template:
+    metadata:
+      labels: {app: data-loader, role: ai-training}
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector: {matchLabels: {app: data-loader}}
+      containers:
+      - name: app
+        image: hashicorp/http-echo:1.0
+        args: ["-listen=:8080","-text=data-loader: batch=256 shards=32"]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 50m, memory: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-loader
+  namespace: ai-training
+  labels: {bgp-announce: "true"}
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  selector: {app: data-loader}
+  ports: [{port: 80, targetPort: 8080}]

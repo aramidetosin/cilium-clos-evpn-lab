@@ -1,0 +1,96 @@
+# ==============================================================================
+# Kubernetes / cluster credentials
+# ==============================================================================
+**/admin.conf
+**/kubeconfig
+**/kubeconfig.yaml
+.kube/
+*.kubeconfig
+kube-config*
+
+# Bootstrap tokens, join commands with real tokens
+join-command.sh
+kubeadm-join*.sh
+
+# ==============================================================================
+# TLS / secrets / keys
+# ==============================================================================
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+**/id_rsa
+**/id_rsa.*
+**/id_ed25519
+**/id_ed25519.*
+**/*.pub
+!**/authorized_keys.example
+**/known_hosts
+
+# Secrets manifests (pattern for files containing base64 secrets)
+*-secret.yaml
+secrets/
+.env
+.env.*
+
+# ==============================================================================
+# Packet captures (binary, often large)
+# ==============================================================================
+*.pcap
+*.pcapng
+*.cap
+
+# ==============================================================================
+# Cilium state / backup dumps
+# ==============================================================================
+cilium-sysdump-*.zip
+cilium-debuginfo-*.tar.gz
+*-bugtool-*.tar.gz
+
+# ==============================================================================
+# macOS / Windows / Linux cruft
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ==============================================================================
+# Editors / IDEs
+# ==============================================================================
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-*
+.project
+.settings/
+.history/
+
+# ==============================================================================
+# Build / temp artifacts
+# ==============================================================================
+*.bak
+*.tmp
+*.orig
+*.rej
+tmp/
+build/
+dist/
+
+# ==============================================================================
+# Explicit non-exclusions (intentional artifacts for the blog)
+# ==============================================================================
+# NOT excluded - these are the evidence the repo depends on:
+#   *.log        — sanity runs, reboot tests, install logs
+#   *.cfg        — NX-OS configs
+#   *.yaml       — manifests, netplans
+#   *.sh         — lab scripts
+#   evidence/    — ALL evidence logs

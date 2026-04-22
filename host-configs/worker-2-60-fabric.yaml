@@ -1,0 +1,13 @@
+# /etc/netplan/60-fabric.yaml on worker-2
+# ens4 = e1 = fabric to its leaf. Does NOT touch ens3 (cloud-init owns that).
+network:
+  version: 2
+  ethernets:
+    ens4:
+      dhcp4: false
+      addresses:
+        - 10.1.3.10/24
+      mtu: 9000
+      routes:
+        - to: 10.0.0.0/8
+          via: 10.1.3.1

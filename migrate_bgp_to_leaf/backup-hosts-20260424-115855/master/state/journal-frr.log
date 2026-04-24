@@ -1,0 +1,60 @@
+# $ sudo journalctl -u frr --no-pager -n 1000
+# 2026-04-24T11:58:56+00:00
+
+Apr 24 10:13:08 master systemd[1]: Starting frr.service - FRRouting...
+Apr 24 10:13:08 master frrinit.sh[102490]:  * Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra staticd'
+Apr 24 10:13:08 master watchfrr[102527]: [T83RR-8SM5G] watchfrr 8.4.4 starting: vty@0
+Apr 24 10:13:08 master watchfrr[102527]: [ZCJ3S-SPH5S] zebra state -> down : initial connection attempt failed
+Apr 24 10:13:08 master watchfrr[102527]: [ZCJ3S-SPH5S] staticd state -> down : initial connection attempt failed
+Apr 24 10:13:08 master watchfrr[102527]: [YFT0P-5Q5YX] Forked background command [pid 102529]: /usr/lib/frr/watchfrr.sh restart all
+Apr 24 10:13:08 master watchfrr.sh[102546]: Cannot stop zebra: pid file not found
+Apr 24 10:13:08 master zebra[102552]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:13:08 master staticd[102558]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:13:08 master watchfrr[102527]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+Apr 24 10:13:08 master watchfrr[102527]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+Apr 24 10:13:08 master watchfrr[102527]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+Apr 24 10:13:08 master frrinit.sh[102490]:  * Started watchfrr
+Apr 24 10:13:08 master systemd[1]: Started frr.service - FRRouting.
+Apr 24 10:14:53 master systemd[1]: Stopping frr.service - FRRouting...
+Apr 24 10:14:53 master watchfrr[102527]: [NG1AJ-FP2TQ] Terminating on signal
+Apr 24 10:14:54 master frrinit.sh[103492]:  * Stopped watchfrr
+Apr 24 10:14:54 master staticd[102558]: [MRN6F-AYZC4] Terminating on signal
+Apr 24 10:14:54 master zebra[102552]: [VXKFG-8SJRV][EC 4043309121] Client 'static' encountered an error and is shutting down.
+Apr 24 10:14:54 master zebra[102552]: [JPSA8-5KYEA] client 17 disconnected 0 static routes removed from the rib
+Apr 24 10:14:54 master zebra[102552]: [S929C-NZR3N] client 17 disconnected 0 static nhgs removed from the rib
+Apr 24 10:14:54 master frrinit.sh[103546]:  * Stopped staticd
+Apr 24 10:14:54 master zebra[102552]: [XVBTQ-5QTVQ] Terminating on signal
+Apr 24 10:14:54 master zebra[102552]: [QS0NJ-H5QKJ] Zebra final shutdown
+Apr 24 10:14:54 master frrinit.sh[103492]:  * Stopped zebra
+Apr 24 10:14:54 master systemd[1]: frr.service: Deactivated successfully.
+Apr 24 10:14:54 master systemd[1]: Stopped frr.service - FRRouting.
+Apr 24 10:14:54 master systemd[1]: Starting frr.service - FRRouting...
+Apr 24 10:14:54 master frrinit.sh[103556]:  * Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra bgpd staticd bfdd'
+Apr 24 10:14:54 master watchfrr[103566]: [T83RR-8SM5G] watchfrr 8.4.4 starting: vty@0
+Apr 24 10:14:54 master watchfrr[103566]: [ZCJ3S-SPH5S] zebra state -> down : initial connection attempt failed
+Apr 24 10:14:54 master watchfrr[103566]: [ZCJ3S-SPH5S] bgpd state -> down : initial connection attempt failed
+Apr 24 10:14:54 master watchfrr[103566]: [ZCJ3S-SPH5S] staticd state -> down : initial connection attempt failed
+Apr 24 10:14:54 master watchfrr[103566]: [ZCJ3S-SPH5S] bfdd state -> down : initial connection attempt failed
+Apr 24 10:14:54 master watchfrr[103566]: [YFT0P-5Q5YX] Forked background command [pid 103567]: /usr/lib/frr/watchfrr.sh restart all
+Apr 24 10:14:54 master zebra[103581]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:54 master bgpd[103586]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:54 master staticd[103593]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:54 master bfdd[103596]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:54 master watchfrr[103566]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+Apr 24 10:14:54 master watchfrr[103566]: [QDG3Y-BY5TN] bgpd state -> up : connect succeeded
+Apr 24 10:14:54 master watchfrr[103566]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+Apr 24 10:14:54 master watchfrr[103566]: [QDG3Y-BY5TN] bfdd state -> up : connect succeeded
+Apr 24 10:14:54 master watchfrr[103566]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+Apr 24 10:14:54 master frrinit.sh[103556]:  * Started watchfrr
+Apr 24 10:14:54 master systemd[1]: Started frr.service - FRRouting.
+Apr 24 10:15:04 master bgpd[103586]: [M59KS-A3ZXZ] bgp_update_receive: rcvd End-of-RIB for IPv4 Unicast from 10.1.1.1 in vrf default
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (26[10.1.1.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (16[if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (24[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (25[172.29.129.254 if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (15[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (28[10.1.1.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (26[10.1.1.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:18 master zebra[103581]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (16[if 3]) that we are still using for a route, sending it back down
+Apr 24 10:28:01 master bgpd[103586]: [MJ4D6-VBJKV][EC 33554454] 10.1.1.1 [Error] bgp_read_packet error: Connection reset by peer
+Apr 24 10:28:15 master bgpd[103586]: [M59KS-A3ZXZ] bgp_update_receive: rcvd End-of-RIB for IPv4 Unicast from 10.1.1.1 in vrf default

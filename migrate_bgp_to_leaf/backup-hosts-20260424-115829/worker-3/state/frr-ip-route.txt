@@ -1,0 +1,21 @@
+# $ sudo vtysh -c 'show ip route'
+# 2026-04-24T11:58:31+00:00
+
+Codes: K - kernel route, C - connected, S - static, R - RIP,
+       O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+       T - Table, v - VNC, V - VNC-Direct, A - Babel, F - PBR,
+       f - OpenFabric,
+       > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+       t - trapped, o - offload failure
+
+K>* 0.0.0.0/0 [0/0] via 172.29.129.254, ens3, 01:43:11
+K>* 10.0.0.0/8 [0/0] via 10.1.4.1, ens4, 01:43:11
+C>* 10.1.4.0/24 is directly connected, ens4, 01:43:34
+C>* 10.10.3.171/32 is directly connected, cilium_host, 01:43:34
+C>* 172.29.129.0/24 is directly connected, ens3, 01:43:34
+B>* 192.168.0.0/16 [20/0] via 10.1.4.1, ens4, weight 1, 01:30:16
+C>* 192.168.100.0/32 is directly connected, lo, 01:43:34
+C>* 192.168.100.1/32 is directly connected, lo, 01:43:34
+C>* 192.168.100.2/32 is directly connected, lo, 01:43:34
+C>* 192.168.100.3/32 is directly connected, lo, 01:43:34
+B>* 192.168.255.0/30 [20/0] via 10.1.4.1, ens4, weight 1, 00:15:49

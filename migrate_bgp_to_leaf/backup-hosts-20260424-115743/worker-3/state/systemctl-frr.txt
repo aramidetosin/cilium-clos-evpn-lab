@@ -1,0 +1,18 @@
+# $ systemctl status frr --no-pager --lines=0
+# 2026-04-24T11:57:46+00:00
+
+● frr.service - FRRouting
+     Loaded: loaded (/usr/lib/systemd/system/frr.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2026-04-24 10:14:57 UTC; 1h 42min ago
+       Docs: https://frrouting.readthedocs.io/en/latest/setup.html
+   Main PID: 65461 (watchfrr)
+     Status: "FRR Operational"
+      Tasks: 15 (limit: 19093)
+     Memory: 22.5M (peak: 31.1M)
+        CPU: 4.296s
+     CGroup: /system.slice/frr.service
+             ├─65461 /usr/lib/frr/watchfrr -d -F traditional zebra bgpd staticd bfdd
+             ├─65477 /usr/lib/frr/zebra -d -F traditional -A 127.0.0.1 -s 90000000
+             ├─65482 /usr/lib/frr/bgpd -d -F traditional -A 127.0.0.1
+             ├─65491 /usr/lib/frr/staticd -d -F traditional -A 127.0.0.1
+             └─65494 /usr/lib/frr/bfdd -d -F traditional -A 127.0.0.1

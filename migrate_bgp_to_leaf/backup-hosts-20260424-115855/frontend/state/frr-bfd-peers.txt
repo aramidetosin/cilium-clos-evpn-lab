@@ -1,0 +1,5 @@
+# $ sudo vtysh -c 'show bfd peers'
+# 2026-04-24T11:58:59+00:00
+
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required

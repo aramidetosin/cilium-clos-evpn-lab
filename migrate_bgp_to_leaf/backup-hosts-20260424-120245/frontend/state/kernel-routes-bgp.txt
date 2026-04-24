@@ -1,0 +1,3 @@
+# $ ip -4 route show proto bgp
+# 2026-04-24T12:02:48+00:00
+

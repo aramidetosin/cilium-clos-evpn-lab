@@ -1,0 +1,4 @@
+# $ systemctl status frr --no-pager --lines=0
+# 2026-04-24T11:58:59+00:00
+
+Unit frr.service could not be found.

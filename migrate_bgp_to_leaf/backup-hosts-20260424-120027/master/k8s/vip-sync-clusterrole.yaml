@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------
+# Command:  kubectl get clusterrole vip-sync-reader -o yaml
+# Captured: 2026-04-24T12:00:41+00:00
+# ---------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRole","metadata":{"annotations":{},"name":"vip-sync-reader"},"rules":[{"apiGroups":[""],"resources":["services"],"verbs":["list","watch","get"]}]}
+  creationTimestamp: "2026-04-24T10:13:39Z"
+  name: vip-sync-reader
+  resourceVersion: "342554"
+  uid: 512ba2b6-2d63-4e5c-a427-dc54051f1bfc
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - list
+  - watch
+  - get

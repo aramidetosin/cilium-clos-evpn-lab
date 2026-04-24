@@ -57,6 +57,7 @@ readonly NODES=(
   "worker-1:10.1.2.10:false"
   "worker-2:10.1.3.10:false"
   "worker-3:10.1.4.10:false"
+  "frontend:172.29.129.195:false"
 )
 
 readonly TIMESTAMP=$(date +%Y%m%d-%H%M%S)

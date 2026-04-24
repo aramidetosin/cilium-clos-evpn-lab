@@ -1,0 +1,26 @@
+# $ sudo vtysh -c 'show bfd peers'
+# 2026-04-24T12:01:54+00:00
+
+BFD Peers:
+	peer 10.1.4.1 local-address 10.1.4.10 vrf default interface ens4
+		ID: 868916042
+		Remote ID: 0
+		Active mode
+		Status: down
+		Downtime: 1 hour(s), 46 minute(s), 52 second(s)
+		Diagnostics: ok
+		Remote diagnostics: ok
+		Peer Type: dynamic
+		RTT min/avg/max: 0/0/0 usec
+		Local timers:
+			Detect-multiplier: 3
+			Receive interval: 200ms
+			Transmission interval: 200ms
+			Echo receive interval: 50ms
+			Echo transmission interval: disabled
+		Remote timers:
+			Detect-multiplier: 3
+			Receive interval: 1000ms
+			Transmission interval: 1000ms
+			Echo receive interval: disabled
+

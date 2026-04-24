@@ -1,0 +1,14 @@
+# $ sudo vtysh -c 'show bgp summary'
+# 2026-04-24T12:01:52+00:00
+
+
+IPv4 Unicast Summary (VRF default):
+BGP router identifier 10.1.2.10, local AS number 65202 vrf-id 0
+BGP table version 9
+RIB entries 9, using 1728 bytes of memory
+Peers 1, using 724 KiB of memory
+
+Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+10.1.2.1        4      65000       650       654        0    0    0 01:33:41            2        6 leaf-svi
+
+Total number of neighbors 1

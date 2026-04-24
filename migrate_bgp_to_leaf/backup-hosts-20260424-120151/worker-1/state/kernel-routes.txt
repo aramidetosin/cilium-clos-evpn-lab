@@ -1,0 +1,14 @@
+# $ ip -4 route show
+# 2026-04-24T12:01:52+00:00
+
+default via 172.29.129.254 dev ens3 proto static 
+10.0.0.0/8 via 10.1.2.1 dev ens4 proto static 
+10.1.2.0/24 dev ens4 proto kernel scope link src 10.1.2.10 
+10.10.0.0/24 via 10.10.1.164 dev cilium_host proto kernel src 10.10.1.164 mtu 8950 
+10.10.1.0/24 via 10.10.1.164 dev cilium_host proto kernel src 10.10.1.164 
+10.10.1.164 dev cilium_host proto kernel scope link 
+10.10.2.0/24 via 10.10.1.164 dev cilium_host proto kernel src 10.10.1.164 mtu 8950 
+10.10.3.0/24 via 10.10.1.164 dev cilium_host proto kernel src 10.10.1.164 mtu 8950 
+172.29.129.0/24 dev ens3 proto kernel scope link src 172.29.129.190 
+192.168.0.0/16 nhid 34 via 10.1.2.1 dev ens4 proto bgp metric 20 
+192.168.255.0/30 nhid 34 via 10.1.2.1 dev ens4 proto bgp metric 20 

@@ -1,0 +1,13 @@
+[Unit]
+Description=VIP sync (Kubernetes LoadBalancer IPs -> lo)
+After=network.target kubelet.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/vip-sync.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

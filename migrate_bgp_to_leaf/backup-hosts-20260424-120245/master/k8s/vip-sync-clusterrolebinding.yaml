@@ -1,0 +1,22 @@
+# ---------------------------------------------------------------
+# Command:  kubectl get clusterrolebinding vip-sync-binding -o yaml
+# Captured: 2026-04-24T12:02:49+00:00
+# ---------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"ClusterRoleBinding","metadata":{"annotations":{},"name":"vip-sync-binding"},"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"ClusterRole","name":"vip-sync-reader"},"subjects":[{"kind":"ServiceAccount","name":"vip-sync","namespace":"kube-system"}]}
+  creationTimestamp: "2026-04-24T10:13:39Z"
+  name: vip-sync-binding
+  resourceVersion: "342555"
+  uid: 773de3ea-a551-44a9-b675-2b3ccfed6ceb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vip-sync-reader
+subjects:
+- kind: ServiceAccount
+  name: vip-sync
+  namespace: kube-system

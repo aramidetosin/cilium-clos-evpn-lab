@@ -1,0 +1,7 @@
+# $ ip -4 route show
+# 2026-04-24T12:01:54+00:00
+
+default via 172.29.129.254 dev ens3 proto static 
+172.29.129.0/24 dev ens3 proto kernel scope link src 172.29.129.195 
+192.168.0.0/16 via 192.168.255.1 dev ens4 proto static metric 100 
+192.168.255.0/30 dev ens4 proto kernel scope link src 192.168.255.2 

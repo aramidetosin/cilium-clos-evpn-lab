@@ -1,0 +1,182 @@
+# ---------------------------------------------------------------
+# Command:  kubectl get svc -A --field-selector spec.type=LoadBalancer -o yaml
+# Captured: 2026-04-24T11:59:00+00:00
+# ---------------------------------------------------------------
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"bgp-announce":"true"},"name":"data-loader","namespace":"ai-training"},"spec":{"externalTrafficPolicy":"Cluster","ports":[{"port":80,"targetPort":8080}],"selector":{"app":"data-loader"},"type":"LoadBalancer"}}
+    creationTimestamp: "2026-04-24T07:10:40Z"
+    labels:
+      bgp-announce: "true"
+    name: data-loader
+    namespace: ai-training
+    resourceVersion: "319426"
+    uid: f6998e0f-dc33-4606-a1fa-278de35f0fff
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.96.152.188
+    clusterIPs:
+    - 10.96.152.188
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30730
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: data-loader
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-24T07:10:40Z"
+      message: ""
+      reason: satisfied
+      status: "True"
+      type: cilium.io/IPAMRequestSatisfied
+    loadBalancer:
+      ingress:
+      - ip: 192.168.100.3
+        ipMode: VIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"bgp-announce":"true"},"name":"inference","namespace":"ai-training"},"spec":{"externalTrafficPolicy":"Cluster","ports":[{"port":80,"targetPort":8080}],"selector":{"app":"inference"},"type":"LoadBalancer"}}
+    creationTimestamp: "2026-04-22T12:59:12Z"
+    labels:
+      bgp-announce: "true"
+    name: inference
+    namespace: ai-training
+    resourceVersion: "1113"
+    uid: a14fb840-acb0-4b75-ab63-5b0995182b4d
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.96.32.18
+    clusterIPs:
+    - 10.96.32.18
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 31568
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: inference
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:59:12Z"
+      message: ""
+      reason: satisfied
+      status: "True"
+      type: cilium.io/IPAMRequestSatisfied
+    loadBalancer:
+      ingress:
+      - ip: 192.168.100.2
+        ipMode: VIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"bgp-announce":"true"},"name":"param-server","namespace":"ai-training"},"spec":{"externalTrafficPolicy":"Cluster","ports":[{"name":"http","port":80,"targetPort":8080}],"selector":{"app":"param-server"},"type":"LoadBalancer"}}
+    creationTimestamp: "2026-04-22T12:59:12Z"
+    labels:
+      bgp-announce: "true"
+    name: param-server
+    namespace: ai-training
+    resourceVersion: "1047"
+    uid: c1fddfdd-eb2f-409e-9a70-3c26f58b0392
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.96.164.170
+    clusterIPs:
+    - 10.96.164.170
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      nodePort: 31695
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: param-server
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:59:12Z"
+      message: ""
+      reason: satisfied
+      status: "True"
+      type: cilium.io/IPAMRequestSatisfied
+    loadBalancer:
+      ingress:
+      - ip: 192.168.100.0
+        ipMode: VIP
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"bgp-announce":"true"},"name":"trainer","namespace":"ai-training"},"spec":{"externalTrafficPolicy":"Cluster","ports":[{"port":80,"targetPort":8080}],"selector":{"app":"trainer"},"type":"LoadBalancer"}}
+    creationTimestamp: "2026-04-24T07:10:30Z"
+    labels:
+      bgp-announce: "true"
+    name: trainer
+    namespace: ai-training
+    resourceVersion: "319386"
+    uid: 0e131fc7-7f3a-4132-b821-5019ab670de2
+  spec:
+    allocateLoadBalancerNodePorts: true
+    clusterIP: 10.96.74.129
+    clusterIPs:
+    - 10.96.74.129
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30699
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: trainer
+    sessionAffinity: None
+    type: LoadBalancer
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-24T07:10:30Z"
+      message: ""
+      reason: satisfied
+      status: "True"
+      type: cilium.io/IPAMRequestSatisfied
+    loadBalancer:
+      ingress:
+      - ip: 192.168.100.1
+        ipMode: VIP
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,63 @@
+# $ sudo journalctl -u frr --no-pager -n 1000
+# 2026-04-24T11:58:58+00:00
+
+Apr 24 10:13:37 worker-3 systemd[1]: Starting frr.service - FRRouting...
+Apr 24 10:13:37 worker-3 frrinit.sh[64745]:  * Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra staticd'
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [T83RR-8SM5G] watchfrr 8.4.4 starting: vty@0
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [ZCJ3S-SPH5S] zebra state -> down : initial connection attempt failed
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [ZCJ3S-SPH5S] staticd state -> down : initial connection attempt failed
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [YFT0P-5Q5YX] Forked background command [pid 64756]: /usr/lib/frr/watchfrr.sh restart all
+Apr 24 10:13:37 worker-3 watchfrr.sh[64764]: Cannot stop zebra: pid file not found
+Apr 24 10:13:37 worker-3 staticd[64771]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:13:37 worker-3 zebra[64766]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+Apr 24 10:13:37 worker-3 watchfrr[64755]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+Apr 24 10:13:37 worker-3 frrinit.sh[64745]:  * Started watchfrr
+Apr 24 10:13:37 worker-3 systemd[1]: Started frr.service - FRRouting.
+Apr 24 10:14:57 worker-3 systemd[1]: Stopping frr.service - FRRouting...
+Apr 24 10:14:57 worker-3 watchfrr[64755]: [NG1AJ-FP2TQ] Terminating on signal
+Apr 24 10:14:57 worker-3 frrinit.sh[65393]:  * Stopped watchfrr
+Apr 24 10:14:57 worker-3 staticd[64771]: [MRN6F-AYZC4] Terminating on signal
+Apr 24 10:14:57 worker-3 zebra[64766]: [VXKFG-8SJRV][EC 4043309121] Client 'static' encountered an error and is shutting down.
+Apr 24 10:14:57 worker-3 zebra[64766]: [JPSA8-5KYEA] client 17 disconnected 0 static routes removed from the rib
+Apr 24 10:14:57 worker-3 zebra[64766]: [S929C-NZR3N] client 17 disconnected 0 static nhgs removed from the rib
+Apr 24 10:14:57 worker-3 frrinit.sh[65440]:  * Stopped staticd
+Apr 24 10:14:57 worker-3 zebra[64766]: [XVBTQ-5QTVQ] Terminating on signal
+Apr 24 10:14:57 worker-3 zebra[64766]: [QS0NJ-H5QKJ] Zebra final shutdown
+Apr 24 10:14:57 worker-3 frrinit.sh[65393]:  * Stopped zebra
+Apr 24 10:14:57 worker-3 systemd[1]: frr.service: Deactivated successfully.
+Apr 24 10:14:57 worker-3 systemd[1]: Stopped frr.service - FRRouting.
+Apr 24 10:14:57 worker-3 systemd[1]: Starting frr.service - FRRouting...
+Apr 24 10:14:57 worker-3 frrinit.sh[65450]:  * Starting watchfrr with command: '  /usr/lib/frr/watchfrr  -d  -F traditional   zebra bgpd staticd bfdd'
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [T83RR-8SM5G] watchfrr 8.4.4 starting: vty@0
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [ZCJ3S-SPH5S] zebra state -> down : initial connection attempt failed
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [ZCJ3S-SPH5S] bgpd state -> down : initial connection attempt failed
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [ZCJ3S-SPH5S] staticd state -> down : initial connection attempt failed
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [ZCJ3S-SPH5S] bfdd state -> down : initial connection attempt failed
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [YFT0P-5Q5YX] Forked background command [pid 65462]: /usr/lib/frr/watchfrr.sh restart all
+Apr 24 10:14:57 worker-3 zebra[65477]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:57 worker-3 bgpd[65482]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:57 worker-3 staticd[65491]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:57 worker-3 bfdd[65494]: [VTVCM-Y2NW3] Configuration Read in Took: 00:00:00
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [QDG3Y-BY5TN] zebra state -> up : connect succeeded
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [QDG3Y-BY5TN] bgpd state -> up : connect succeeded
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [QDG3Y-BY5TN] staticd state -> up : connect succeeded
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [QDG3Y-BY5TN] bfdd state -> up : connect succeeded
+Apr 24 10:14:57 worker-3 watchfrr[65461]: [KWE5Q-QNGFC] all daemons up, doing startup-complete notify
+Apr 24 10:14:57 worker-3 frrinit.sh[65450]:  * Started watchfrr
+Apr 24 10:14:57 worker-3 systemd[1]: Started frr.service - FRRouting.
+Apr 24 10:15:07 worker-3 bgpd[65482]: [M59KS-A3ZXZ] bgp_update_receive: rcvd End-of-RIB for IPv4 Unicast from 10.1.4.1 in vrf default
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (36[10.1.4.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (21[if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (20[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (34[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (35[172.29.129.254 if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (36[10.1.4.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (21[if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (38[10.1.4.1 if 3]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (20[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (34[if 2]) that we are still using for a route, sending it back down
+Apr 24 10:15:20 worker-3 zebra[65477]: [RG2NH-FTSDH][EC 4043309102] Kernel deleted a nexthop group with ID (35[172.29.129.254 if 2]) that we are still using for a route, sending it back down
+Apr 24 10:28:02 worker-3 bgpd[65482]: [MJ4D6-VBJKV][EC 33554454] 10.1.4.1 [Error] bgp_read_packet error: Connection reset by peer
+Apr 24 10:28:15 worker-3 bgpd[65482]: [M59KS-A3ZXZ] bgp_update_receive: rcvd End-of-RIB for IPv4 Unicast from 10.1.4.1 in vrf default

@@ -1,0 +1,47 @@
+# $ sudo vtysh -c 'show running-config'
+# 2026-04-24T11:57:44+00:00
+
+Building configuration...
+
+Current configuration:
+!
+frr version 8.4.4
+frr defaults traditional
+hostname worker-1
+log syslog informational
+no ipv6 forwarding
+service integrated-vtysh-config
+!
+router bgp 65202
+ bgp router-id 10.1.2.10
+ no bgp ebgp-requires-policy
+ no bgp default ipv4-unicast
+ timers bgp 30 90
+ neighbor 10.1.2.1 remote-as 65000
+ neighbor 10.1.2.1 description leaf-svi
+ neighbor 10.1.2.1 bfd
+ neighbor 10.1.2.1 bfd profile FAST-BGP
+ !
+ address-family ipv4 unicast
+  redistribute connected route-map VIP-FILTER
+  neighbor 10.1.2.1 activate
+  neighbor 10.1.2.1 route-map VIP-FILTER in
+  neighbor 10.1.2.1 route-map VIP-FILTER out
+ exit-address-family
+exit
+!
+ip prefix-list VIP-SUPERNET seq 10 permit 192.168.0.0/16 le 32
+!
+route-map VIP-FILTER permit 10
+ match ip address prefix-list VIP-SUPERNET
+exit
+!
+bfd
+ profile FAST-BGP
+  transmit-interval 200
+  receive-interval 200
+ exit
+ !
+exit
+!
+end

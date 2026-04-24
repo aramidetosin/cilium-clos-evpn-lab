@@ -1,0 +1,2587 @@
+Validation run: 2026-04-24T10:47:54+00:00
+Log: /home/user/migrate_bgp_to_leaf/validate-frr-bgp-20260424-104754.log
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35mPrerequisites[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+   [0;32m✓[0m sshpass available
+   [0;32m✓[0m kubectl reachable
+   [0;32m✓[0m sshpass + ssh to Leaf-1 (10.1.1.1)
+   [0;32m✓[0m ssh to master (10.1.1.10) works
+   [0;32m✓[0m ssh to worker-1 (10.1.2.10) works
+   [0;32m✓[0m ssh to worker-2 (10.1.3.10) works
+   [0;32m✓[0m ssh to worker-3 (10.1.4.10) works
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35m1. Cluster layer (K8s + Cilium absent + vip-sync RBAC + LB services)[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+[1m[0;34m── 1.1 kubernetes nodes[0m
+   $ kubectl get nodes -o wide
+   ┄┄┄ raw output ┄┄┄
+       NAME       STATUS   ROLES           AGE   VERSION    INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+       master     Ready    control-plane   45h   v1.31.14   10.1.1.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+       worker-1   Ready    <none>          45h   v1.31.14   10.1.2.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+       worker-2   Ready    <none>          45h   v1.31.14   10.1.3.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+       worker-3   Ready    <none>          45h   v1.31.14   10.1.4.10     <none>        Ubuntu 24.04.4 LTS   6.8.0-101-generic   containerd://2.2.1
+   ┄┄┄
+   [0;32m✓[0m 4/4 nodes Ready
+
+[1m[0;34m── 1.2 Cilium daemonset (dataplane only)[0m
+   $ kubectl -n kube-system get ds cilium
+   ┄┄┄ raw output ┄┄┄
+       NAME     DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+       cilium   4         4         4       4            4           kubernetes.io/os=linux   45h
+   ┄┄┄
+   [0;32m✓[0m Cilium DS present
+
+[1m[0;34m── 1.3 Cilium BGP CRs REMOVED[0m
+   $ kubectl get ciliumbgpclusterconfig,ciliumbgppeerconfig,ciliumbgpadvertisement --ignore-not-found -o name
+   ┄┄┄ raw output ┄┄┄
+       
+   ┄┄┄
+   [0;32m✓[0m zero Cilium BGP CRs (cleanly torn down)
+
+[1m[0;34m── 1.4 vip-sync ServiceAccount[0m
+   $ kubectl -n kube-system get sa vip-sync
+   ┄┄┄ raw output ┄┄┄
+       NAME       SECRETS   AGE
+       vip-sync   0         34m
+   ┄┄┄
+   [0;32m✓[0m vip-sync SA exists
+
+[1m[0;34m── 1.5 vip-sync RBAC[0m
+   $ kubectl get clusterrole vip-sync-reader clusterrolebinding vip-sync-binding
+   ┄┄┄ raw output ┄┄┄
+       NAME              CREATED AT
+       vip-sync-reader   2026-04-24T10:13:39Z
+       Error from server (NotFound): clusterroles.rbac.authorization.k8s.io "clusterrolebinding" not found
+       Error from server (NotFound): clusterroles.rbac.authorization.k8s.io "vip-sync-binding" not found
+   ┄┄┄
+   [0;32m✓[0m vip-sync ClusterRole + Binding exist
+
+[1m[0;34m── 1.6 LoadBalancer services (excluding system namespaces)[0m
+   $ kubectl get svc -A --field-selector spec.type=LoadBalancer
+   ┄┄┄ raw output ┄┄┄
+       NAMESPACE     NAME           TYPE           CLUSTER-IP      EXTERNAL-IP     PORT(S)        AGE
+       ai-training   data-loader    LoadBalancer   10.96.152.188   192.168.100.3   80:30730/TCP   3h37m
+       ai-training   inference      LoadBalancer   10.96.32.18     192.168.100.2   80:31568/TCP   45h
+       ai-training   param-server   LoadBalancer   10.96.164.170   192.168.100.0   80:31695/TCP   45h
+       ai-training   trainer        LoadBalancer   10.96.74.129    192.168.100.1   80:30699/TCP   3h37m
+   ┄┄┄
+   [0;32m✓[0m 4 LB services in non-system namespaces
+   [0;32m✓[0m no LB services in kube-system / kube-public
+   [0;32m✓[0m VIPs from 192.168.100.0/24
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35m2. FRR + vip-sync per node (services, BGP, advertised/received, VIPs on lo)[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34m[i][0m expected VIPs from K8s = 4
+
+[1m[0;34m── 2.master vip-sync service state[0m
+   $ [master] systemctl is-active vip-sync
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m master: vip-sync active
+
+[1m[0;34m── 2.master FRR service state[0m
+   $ [master] systemctl is-active frr
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m master: frr active
+
+[1m[0;34m── 2.master FRR daemons enabled[0m
+   $ [master] grep -E '^(bgpd|bfdd)=' /etc/frr/daemons
+   ┄┄┄ raw output ┄┄┄
+       bgpd=yes
+       bfdd=yes
+   ┄┄┄
+   [0;32m✓[0m master: bgpd=yes
+   [0;32m✓[0m master: bfdd=yes
+
+[1m[0;34m── 2.master FRR show bgp summary[0m
+   $ [master] sudo vtysh -c 'show bgp summary'
+   ┄┄┄ raw output ┄┄┄
+       
+       IPv4 Unicast Summary (VRF default):
+       BGP router identifier 10.1.1.10, local AS number 65201 vrf-id 0
+       BGP table version 7
+       RIB entries 8, using 1536 bytes of memory
+       Peers 1, using 724 KiB of memory
+       
+       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+       10.1.1.1        4      65000       205       209        0    0    0 00:19:47            1        5 leaf-svi
+       
+       Total number of neighbors 1
+   ┄┄┄
+   [0;32m✓[0m master: session to 10.1.1.1 up (PfxRcd numeric)
+   [0;32m✓[0m master: peer AS = 65000
+   [0;32m✓[0m master: local AS = 65201
+   [0;32m✓[0m master: PfxRcd >= 1 (supernet from leaf)
+
+[1m[0;34m── 2.master FRR BGP RIB entry for supernet[0m
+   $ [master] sudo vtysh -c 'show ip bgp 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       BGP routing table entry for 192.168.0.0/16, version 7
+       Paths: (1 available, best #1, table default)
+         Advertised to non peer-group peers:
+         10.1.1.1
+         65000, (aggregated by 65000 10.1.1.1)
+           10.1.1.1 from 10.1.1.1 (10.1.1.1)
+             Origin IGP, valid, external, atomic-aggregate, best (First path received)
+             Extended Community: RT:65000:50001
+             Last update: Fri Apr 24 10:28:15 2026
+   ┄┄┄
+   [0;32m✓[0m master: supernet 192.168.0.0/16 in BGP table
+   [0;32m✓[0m master: supernet received from 10.1.1.1 (peer AS 65000)
+
+[1m[0;34m── 2.master FRR advertised routes[0m
+   $ [master] sudo vtysh -c 'show bgp ipv4 unicast neighbor 10.1.1.1 advertised-routes'
+   ┄┄┄ raw output ┄┄┄
+       BGP table version is 7, local router ID is 10.1.1.10, vrf id 0
+       Default local pref 100, local AS 65201
+       Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                      i internal, r RIB-failure, S Stale, R Removed
+       Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+       Origin codes:  i - IGP, e - EGP, ? - incomplete
+       RPKI validation codes: V valid, I invalid, N Not found
+       
+          Network          Next Hop            Metric LocPrf Weight Path
+       *> 192.168.0.0/16   0.0.0.0                                0 65000 i
+       *> 192.168.100.0/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.1/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.2/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.3/32 0.0.0.0                  0         32768 ?
+       
+       Total number of prefixes 5
+   ┄┄┄
+   [0;32m✓[0m master: advertising 4 VIP /32(s) to leaf
+
+[1m[0;34m── 2.master vip-sync state (lo /32s)[0m
+   $ [master] ip -4 addr show dev lo
+   ┄┄┄ raw output ┄┄┄
+       1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+           inet 127.0.0.1/8 scope host lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.0/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.1/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.2/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.3/32 scope global lo
+              valid_lft forever preferred_lft forever
+   ┄┄┄
+   [0;32m✓[0m master: 4/4 VIP(s) on lo (matches cluster state)
+
+[1m[0;34m── 2.worker-1 vip-sync service state[0m
+   $ [worker-1] systemctl is-active vip-sync
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-1: vip-sync active
+
+[1m[0;34m── 2.worker-1 FRR service state[0m
+   $ [worker-1] systemctl is-active frr
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-1: frr active
+
+[1m[0;34m── 2.worker-1 FRR daemons enabled[0m
+   $ [worker-1] grep -E '^(bgpd|bfdd)=' /etc/frr/daemons
+   ┄┄┄ raw output ┄┄┄
+       bgpd=yes
+       bfdd=yes
+   ┄┄┄
+   [0;32m✓[0m worker-1: bgpd=yes
+   [0;32m✓[0m worker-1: bfdd=yes
+
+[1m[0;34m── 2.worker-1 FRR show bgp summary[0m
+   $ [worker-1] sudo vtysh -c 'show bgp summary'
+   ┄┄┄ raw output ┄┄┄
+       
+       IPv4 Unicast Summary (VRF default):
+       BGP router identifier 10.1.2.10, local AS number 65202 vrf-id 0
+       BGP table version 7
+       RIB entries 8, using 1536 bytes of memory
+       Peers 1, using 724 KiB of memory
+       
+       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+       10.1.2.1        4      65000       205       209        0    0    0 00:19:48            1        5 leaf-svi
+       
+       Total number of neighbors 1
+   ┄┄┄
+   [0;32m✓[0m worker-1: session to 10.1.2.1 up (PfxRcd numeric)
+   [0;32m✓[0m worker-1: peer AS = 65000
+   [0;32m✓[0m worker-1: local AS = 65202
+   [0;32m✓[0m worker-1: PfxRcd >= 1 (supernet from leaf)
+
+[1m[0;34m── 2.worker-1 FRR BGP RIB entry for supernet[0m
+   $ [worker-1] sudo vtysh -c 'show ip bgp 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       BGP routing table entry for 192.168.0.0/16, version 7
+       Paths: (1 available, best #1, table default)
+         Advertised to non peer-group peers:
+         10.1.2.1
+         65000, (aggregated by 65000 10.1.2.1)
+           10.1.2.1 from 10.1.2.1 (10.1.2.1)
+             Origin IGP, valid, external, atomic-aggregate, best (First path received)
+             Extended Community: RT:65000:50001
+             Last update: Fri Apr 24 10:28:16 2026
+   ┄┄┄
+   [0;32m✓[0m worker-1: supernet 192.168.0.0/16 in BGP table
+   [0;32m✓[0m worker-1: supernet received from 10.1.2.1 (peer AS 65000)
+
+[1m[0;34m── 2.worker-1 FRR advertised routes[0m
+   $ [worker-1] sudo vtysh -c 'show bgp ipv4 unicast neighbor 10.1.2.1 advertised-routes'
+   ┄┄┄ raw output ┄┄┄
+       BGP table version is 7, local router ID is 10.1.2.10, vrf id 0
+       Default local pref 100, local AS 65202
+       Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                      i internal, r RIB-failure, S Stale, R Removed
+       Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+       Origin codes:  i - IGP, e - EGP, ? - incomplete
+       RPKI validation codes: V valid, I invalid, N Not found
+       
+          Network          Next Hop            Metric LocPrf Weight Path
+       *> 192.168.0.0/16   0.0.0.0                                0 65000 i
+       *> 192.168.100.0/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.1/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.2/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.3/32 0.0.0.0                  0         32768 ?
+       
+       Total number of prefixes 5
+   ┄┄┄
+   [0;32m✓[0m worker-1: advertising 4 VIP /32(s) to leaf
+
+[1m[0;34m── 2.worker-1 vip-sync state (lo /32s)[0m
+   $ [worker-1] ip -4 addr show dev lo
+   ┄┄┄ raw output ┄┄┄
+       1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+           inet 127.0.0.1/8 scope host lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.0/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.1/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.2/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.3/32 scope global lo
+              valid_lft forever preferred_lft forever
+   ┄┄┄
+   [0;32m✓[0m worker-1: 4/4 VIP(s) on lo (matches cluster state)
+
+[1m[0;34m── 2.worker-2 vip-sync service state[0m
+   $ [worker-2] systemctl is-active vip-sync
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-2: vip-sync active
+
+[1m[0;34m── 2.worker-2 FRR service state[0m
+   $ [worker-2] systemctl is-active frr
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-2: frr active
+
+[1m[0;34m── 2.worker-2 FRR daemons enabled[0m
+   $ [worker-2] grep -E '^(bgpd|bfdd)=' /etc/frr/daemons
+   ┄┄┄ raw output ┄┄┄
+       bgpd=yes
+       bfdd=yes
+   ┄┄┄
+   [0;32m✓[0m worker-2: bgpd=yes
+   [0;32m✓[0m worker-2: bfdd=yes
+
+[1m[0;34m── 2.worker-2 FRR show bgp summary[0m
+   $ [worker-2] sudo vtysh -c 'show bgp summary'
+   ┄┄┄ raw output ┄┄┄
+       
+       IPv4 Unicast Summary (VRF default):
+       BGP router identifier 10.1.3.10, local AS number 65203 vrf-id 0
+       BGP table version 7
+       RIB entries 8, using 1536 bytes of memory
+       Peers 1, using 724 KiB of memory
+       
+       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+       10.1.3.1        4      65000       205       209        0    0    0 00:19:51            1        5 leaf-svi
+       
+       Total number of neighbors 1
+   ┄┄┄
+   [0;32m✓[0m worker-2: session to 10.1.3.1 up (PfxRcd numeric)
+   [0;32m✓[0m worker-2: peer AS = 65000
+   [0;32m✓[0m worker-2: local AS = 65203
+   [0;32m✓[0m worker-2: PfxRcd >= 1 (supernet from leaf)
+
+[1m[0;34m── 2.worker-2 FRR BGP RIB entry for supernet[0m
+   $ [worker-2] sudo vtysh -c 'show ip bgp 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       BGP routing table entry for 192.168.0.0/16, version 7
+       Paths: (1 available, best #1, table default)
+         Advertised to non peer-group peers:
+         10.1.3.1
+         65000, (aggregated by 65000 10.1.3.1)
+           10.1.3.1 from 10.1.3.1 (10.1.3.1)
+             Origin IGP, valid, external, atomic-aggregate, best (First path received)
+             Extended Community: RT:65000:50001
+             Last update: Fri Apr 24 10:28:16 2026
+   ┄┄┄
+   [0;32m✓[0m worker-2: supernet 192.168.0.0/16 in BGP table
+   [0;32m✓[0m worker-2: supernet received from 10.1.3.1 (peer AS 65000)
+
+[1m[0;34m── 2.worker-2 FRR advertised routes[0m
+   $ [worker-2] sudo vtysh -c 'show bgp ipv4 unicast neighbor 10.1.3.1 advertised-routes'
+   ┄┄┄ raw output ┄┄┄
+       BGP table version is 7, local router ID is 10.1.3.10, vrf id 0
+       Default local pref 100, local AS 65203
+       Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                      i internal, r RIB-failure, S Stale, R Removed
+       Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+       Origin codes:  i - IGP, e - EGP, ? - incomplete
+       RPKI validation codes: V valid, I invalid, N Not found
+       
+          Network          Next Hop            Metric LocPrf Weight Path
+       *> 192.168.0.0/16   0.0.0.0                                0 65000 i
+       *> 192.168.100.0/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.1/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.2/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.3/32 0.0.0.0                  0         32768 ?
+       
+       Total number of prefixes 5
+   ┄┄┄
+   [0;32m✓[0m worker-2: advertising 4 VIP /32(s) to leaf
+
+[1m[0;34m── 2.worker-2 vip-sync state (lo /32s)[0m
+   $ [worker-2] ip -4 addr show dev lo
+   ┄┄┄ raw output ┄┄┄
+       1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+           inet 127.0.0.1/8 scope host lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.0/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.1/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.2/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.3/32 scope global lo
+              valid_lft forever preferred_lft forever
+   ┄┄┄
+   [0;32m✓[0m worker-2: 4/4 VIP(s) on lo (matches cluster state)
+
+[1m[0;34m── 2.worker-3 vip-sync service state[0m
+   $ [worker-3] systemctl is-active vip-sync
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-3: vip-sync active
+
+[1m[0;34m── 2.worker-3 FRR service state[0m
+   $ [worker-3] systemctl is-active frr
+   ┄┄┄ raw output ┄┄┄
+       active
+   ┄┄┄
+   [0;32m✓[0m worker-3: frr active
+
+[1m[0;34m── 2.worker-3 FRR daemons enabled[0m
+   $ [worker-3] grep -E '^(bgpd|bfdd)=' /etc/frr/daemons
+   ┄┄┄ raw output ┄┄┄
+       bgpd=yes
+       bfdd=yes
+   ┄┄┄
+   [0;32m✓[0m worker-3: bgpd=yes
+   [0;32m✓[0m worker-3: bfdd=yes
+
+[1m[0;34m── 2.worker-3 FRR show bgp summary[0m
+   $ [worker-3] sudo vtysh -c 'show bgp summary'
+   ┄┄┄ raw output ┄┄┄
+       
+       IPv4 Unicast Summary (VRF default):
+       BGP router identifier 10.1.4.10, local AS number 65204 vrf-id 0
+       BGP table version 7
+       RIB entries 8, using 1536 bytes of memory
+       Peers 1, using 724 KiB of memory
+       
+       Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+       10.1.4.1        4      65000       205       209        0    0    0 00:19:54            1        5 leaf-svi
+       
+       Total number of neighbors 1
+   ┄┄┄
+   [0;32m✓[0m worker-3: session to 10.1.4.1 up (PfxRcd numeric)
+   [0;32m✓[0m worker-3: peer AS = 65000
+   [0;32m✓[0m worker-3: local AS = 65204
+   [0;32m✓[0m worker-3: PfxRcd >= 1 (supernet from leaf)
+
+[1m[0;34m── 2.worker-3 FRR BGP RIB entry for supernet[0m
+   $ [worker-3] sudo vtysh -c 'show ip bgp 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       BGP routing table entry for 192.168.0.0/16, version 7
+       Paths: (1 available, best #1, table default)
+         Advertised to non peer-group peers:
+         10.1.4.1
+         65000, (aggregated by 65000 10.1.4.1)
+           10.1.4.1 from 10.1.4.1 (10.1.4.1)
+             Origin IGP, valid, external, atomic-aggregate, best (First path received)
+             Extended Community: RT:65000:50001
+             Last update: Fri Apr 24 10:28:15 2026
+   ┄┄┄
+   [0;32m✓[0m worker-3: supernet 192.168.0.0/16 in BGP table
+   [0;32m✓[0m worker-3: supernet received from 10.1.4.1 (peer AS 65000)
+
+[1m[0;34m── 2.worker-3 FRR advertised routes[0m
+   $ [worker-3] sudo vtysh -c 'show bgp ipv4 unicast neighbor 10.1.4.1 advertised-routes'
+   ┄┄┄ raw output ┄┄┄
+       BGP table version is 7, local router ID is 10.1.4.10, vrf id 0
+       Default local pref 100, local AS 65204
+       Status codes:  s suppressed, d damped, h history, * valid, > best, = multipath,
+                      i internal, r RIB-failure, S Stale, R Removed
+       Nexthop codes: @NNN nexthop's vrf id, < announce-nh-self
+       Origin codes:  i - IGP, e - EGP, ? - incomplete
+       RPKI validation codes: V valid, I invalid, N Not found
+       
+          Network          Next Hop            Metric LocPrf Weight Path
+       *> 192.168.0.0/16   0.0.0.0                                0 65000 i
+       *> 192.168.100.0/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.1/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.2/32 0.0.0.0                  0         32768 ?
+       *> 192.168.100.3/32 0.0.0.0                  0         32768 ?
+       
+       Total number of prefixes 5
+   ┄┄┄
+   [0;32m✓[0m worker-3: advertising 4 VIP /32(s) to leaf
+
+[1m[0;34m── 2.worker-3 vip-sync state (lo /32s)[0m
+   $ [worker-3] ip -4 addr show dev lo
+   ┄┄┄ raw output ┄┄┄
+       1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+           inet 127.0.0.1/8 scope host lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.0/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.1/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.2/32 scope global lo
+              valid_lft forever preferred_lft forever
+           inet 192.168.100.3/32 scope global lo
+              valid_lft forever preferred_lft forever
+   ┄┄┄
+   [0;32m✓[0m worker-3: 4/4 VIP(s) on lo (matches cluster state)
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35m3. Host kernel FIB (proto bgp from FRR, no netplan /16 static)[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+[1m[0;34m── 3.master ip route show 192.168.0.0/16[0m
+   $ [master] ip route show 192.168.0.0/16
+   ┄┄┄ raw output ┄┄┄
+       192.168.0.0/16 nhid 28 via 10.1.1.1 dev ens4 proto bgp metric 20 
+   ┄┄┄
+   [0;32m✓[0m master: 192.168.0.0/16 proto bgp (installed by FRR)
+   [0;32m✓[0m master: 192.168.0.0/16 NOT proto static (netplan dropped)
+   [0;32m✓[0m master: next-hop is leaf SVI 10.1.1.1
+
+[1m[0;34m── 3.master ip route get 192.168.200.1 (non-VIP probe in supernet)[0m
+   $ [master] ip route get 192.168.200.1
+   ┄┄┄ raw output ┄┄┄
+       192.168.200.1 via 10.1.1.1 dev ens4 src 10.1.1.10 uid 1000 
+           cache 
+   ┄┄┄
+   [0;32m✓[0m master: non-VIP supernet address resolves via 10.1.1.1 dev ens4
+
+[1m[0;34m── 3.worker-1 ip route show 192.168.0.0/16[0m
+   $ [worker-1] ip route show 192.168.0.0/16
+   ┄┄┄ raw output ┄┄┄
+       192.168.0.0/16 nhid 34 via 10.1.2.1 dev ens4 proto bgp metric 20 
+   ┄┄┄
+   [0;32m✓[0m worker-1: 192.168.0.0/16 proto bgp (installed by FRR)
+   [0;32m✓[0m worker-1: 192.168.0.0/16 NOT proto static (netplan dropped)
+   [0;32m✓[0m worker-1: next-hop is leaf SVI 10.1.2.1
+
+[1m[0;34m── 3.worker-1 ip route get 192.168.200.1 (non-VIP probe in supernet)[0m
+   $ [worker-1] ip route get 192.168.200.1
+   ┄┄┄ raw output ┄┄┄
+       192.168.200.1 via 10.1.2.1 dev ens4 src 10.1.2.10 uid 1000 
+           cache 
+   ┄┄┄
+   [0;32m✓[0m worker-1: non-VIP supernet address resolves via 10.1.2.1 dev ens4
+
+[1m[0;34m── 3.worker-2 ip route show 192.168.0.0/16[0m
+   $ [worker-2] ip route show 192.168.0.0/16
+   ┄┄┄ raw output ┄┄┄
+       192.168.0.0/16 nhid 34 via 10.1.3.1 dev ens4 proto bgp metric 20 
+   ┄┄┄
+   [0;32m✓[0m worker-2: 192.168.0.0/16 proto bgp (installed by FRR)
+   [0;32m✓[0m worker-2: 192.168.0.0/16 NOT proto static (netplan dropped)
+   [0;32m✓[0m worker-2: next-hop is leaf SVI 10.1.3.1
+
+[1m[0;34m── 3.worker-2 ip route get 192.168.200.1 (non-VIP probe in supernet)[0m
+   $ [worker-2] ip route get 192.168.200.1
+   ┄┄┄ raw output ┄┄┄
+       192.168.200.1 via 10.1.3.1 dev ens4 src 10.1.3.10 uid 1000 
+           cache 
+   ┄┄┄
+   [0;32m✓[0m worker-2: non-VIP supernet address resolves via 10.1.3.1 dev ens4
+
+[1m[0;34m── 3.worker-3 ip route show 192.168.0.0/16[0m
+   $ [worker-3] ip route show 192.168.0.0/16
+   ┄┄┄ raw output ┄┄┄
+       192.168.0.0/16 nhid 38 via 10.1.4.1 dev ens4 proto bgp metric 20 
+   ┄┄┄
+   [0;32m✓[0m worker-3: 192.168.0.0/16 proto bgp (installed by FRR)
+   [0;32m✓[0m worker-3: 192.168.0.0/16 NOT proto static (netplan dropped)
+   [0;32m✓[0m worker-3: next-hop is leaf SVI 10.1.4.1
+
+[1m[0;34m── 3.worker-3 ip route get 192.168.200.1 (non-VIP probe in supernet)[0m
+   $ [worker-3] ip route get 192.168.200.1
+   ┄┄┄ raw output ┄┄┄
+       192.168.200.1 via 10.1.4.1 dev ens4 src 10.1.4.10 uid 1000 
+           cache 
+   ┄┄┄
+   [0;32m✓[0m worker-3: non-VIP supernet address resolves via 10.1.4.1 dev ens4
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35m4. VIP reachability (curl each VIP from every node)[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+
+[1m[0;34m── 4.master -> ai-training/data-loader @ 192.168.100.3[0m
+   $ [master] curl -s --max-time 5 http://192.168.100.3/
+   ┄┄┄ raw output ┄┄┄
+       data-loader: batch=256 shards=32
+   ┄┄┄
+   [0;32m✓[0m master: got response "data-loader: batch=256 shards=32"
+
+[1m[0;34m── 4.worker-1 -> ai-training/data-loader @ 192.168.100.3[0m
+   $ [worker-1] curl -s --max-time 5 http://192.168.100.3/
+   ┄┄┄ raw output ┄┄┄
+       data-loader: batch=256 shards=32
+   ┄┄┄
+   [0;32m✓[0m worker-1: got response "data-loader: batch=256 shards=32"
+
+[1m[0;34m── 4.worker-2 -> ai-training/data-loader @ 192.168.100.3[0m
+   $ [worker-2] curl -s --max-time 5 http://192.168.100.3/
+   ┄┄┄ raw output ┄┄┄
+       data-loader: batch=256 shards=32
+   ┄┄┄
+   [0;32m✓[0m worker-2: got response "data-loader: batch=256 shards=32"
+
+[1m[0;34m── 4.worker-3 -> ai-training/data-loader @ 192.168.100.3[0m
+   $ [worker-3] curl -s --max-time 5 http://192.168.100.3/
+   ┄┄┄ raw output ┄┄┄
+       data-loader: batch=256 shards=32
+   ┄┄┄
+   [0;32m✓[0m worker-3: got response "data-loader: batch=256 shards=32"
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35m5. Fabric (NX-OS leaves) - BGP VRF + RIB + EVPN + /16 aggregate[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34m[i][0m BFD OPERATIONAL STATE NOT CHECKED (virtual NX-OS / n9kv limitation)
+[0;34m[i][0m BFD config presence IS checked at the SVI + neighbor level.
+
+[1m[0;34m────────── Leaf-1 (SVI 10.1.1.1, peer master/65201) ──────────[0m
+[0;34m[i][0m running 10 show commands in a single SSH session
+
+[1m[0;34m── 5.Leaf-1.1 show bgp ipv4 unicast summary vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show bgp ipv4 unicast summary vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP summary information for VRF tenant-1, address family IPv4 Unicast
+       BGP router identifier 10.1.1.1, local AS number 65000
+       BGP table version is 145, IPv4 Unicast config peers 1, capable peers 1
+       12 network entries and 27 paths using 3024 bytes of memory
+       BGP attribute entries [16/5888], BGP AS path entries [4/24]
+       BGP community entries [0/0], BGP clusterlist entries [6/24]
+       4 received paths for inbound soft reconfiguration
+       0 identical, 4 modified, 0 filtered received paths using 64 bytes
+       
+       Neighbor        V    AS    MsgRcvd    MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+       10.1.1.10       4 65201       1009        999      145    0    0 00:19:58 4         
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: neighbor 10.1.1.10 present
+   [0;32m✓[0m Leaf-1: neighbor AS=65201
+   [0;32m✓[0m Leaf-1: session Established (PfxRcd numeric)
+   [0;32m✓[0m Leaf-1: PfxRcd >= 1 from host (FRR advertising VIPs)
+
+[1m[0;34m── 5.Leaf-1.2 show ip bgp vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show ip bgp vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP table version is 145, Local Router ID is 10.1.1.1
+       Status: s-suppressed, x-deleted, S-stale, d-dampened, h-history, *-valid, >-best
+       Path type: i-internal, e-external, c-confed, l-local, a-aggregate, r-redist, I-injected
+       Origin codes: i - IGP, e - EGP, ? - incomplete, | - multipath, & - backup, 2 - best2
+       
+          Network            Next Hop            Metric     LocPrf     Weight Path
+       *>r10.1.1.0/24        0.0.0.0                  0        100      32768 ?
+       *>i10.1.2.0/24        10.0.0.12                0        100          0 ?
+       *>i10.1.2.10/32       10.0.0.12                         100          0 i
+       *>i10.1.3.0/24        10.0.0.13                0        100          0 ?
+       *>i10.1.3.10/32       10.0.0.13                         100          0 i
+       *>i10.1.4.0/24        10.0.0.14                0        100          0 ?
+       *>i10.1.4.10/32       10.0.0.14                         100          0 i
+       * i192.168.0.0/16     10.0.0.13                         100          0 i
+       * i                   10.0.0.12                         100          0 i
+       * i                   10.0.0.14                         100          0 i
+       *>a                   0.0.0.0                           100      32768 i
+       *>e192.168.100.0/32   10.1.1.10                0                     0 65201 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.1/32   10.1.1.10                0                     0 65201 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.2/32   10.1.1.10                0                     0 65201 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.3/32   10.1.1.10                0                     0 65201 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 4 VIP /32(s) in BGP table (expected >= 4)
+   [0;32m✓[0m Leaf-1: local eBGP path present (*>e via host)
+
+[1m[0;34m── 5.Leaf-1.3.0 show ip route 192.168.100.0 vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show ip route 192.168.100.0 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.0/32, ubest/mbest: 1/0
+           *via 10.1.1.10, [20/0], 00:19:58, bgp-65000, external, tag 65201
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 192.168.100.0/32 next-hop 10.1.1.10 (local host)
+   [0;32m✓[0m Leaf-1: 192.168.100.0/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-1.3.1 show ip route 192.168.100.1 vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show ip route 192.168.100.1 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.1/32, ubest/mbest: 1/0
+           *via 10.1.1.10, [20/0], 00:19:58, bgp-65000, external, tag 65201
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 192.168.100.1/32 next-hop 10.1.1.10 (local host)
+   [0;32m✓[0m Leaf-1: 192.168.100.1/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-1.3.2 show ip route 192.168.100.2 vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show ip route 192.168.100.2 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.2/32, ubest/mbest: 1/0
+           *via 10.1.1.10, [20/0], 00:19:58, bgp-65000, external, tag 65201
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 192.168.100.2/32 next-hop 10.1.1.10 (local host)
+   [0;32m✓[0m Leaf-1: 192.168.100.2/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-1.3.3 show ip route 192.168.100.3 vrf tenant-1[0m
+   $ ssh admin@10.1.1.1 'show ip route 192.168.100.3 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.3/32, ubest/mbest: 1/0
+           *via 10.1.1.10, [20/0], 00:19:58, bgp-65000, external, tag 65201
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 192.168.100.3/32 next-hop 10.1.1.10 (local host)
+   [0;32m✓[0m Leaf-1: 192.168.100.3/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-1.4 show bgp l2vpn evpn | include 192.168.100[0m
+   $ ssh admin@10.1.1.1 'show bgp l2vpn evpn | include 192.168.100'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 16 type-5 EVPN entries for VIP /32s (expected >= 4)
+   [0;32m✓[0m Leaf-1: imports type-5 VIPs from peer VTEPs (* i)
+
+[1m[0;34m── 5.Leaf-1.5 show running-config bgp[0m
+   $ ssh admin@10.1.1.1 'show running-config bgp'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config bgp
+       !Running configuration last done at: Fri Apr 24 10:18:24 2026
+       !Time: Fri Apr 24 10:39:06 2026
+       
+       version 10.5(2) Bios:version  
+       feature bgp
+       
+       router bgp 65000
+         router-id 10.0.0.11
+         log-neighbor-changes
+         address-family ipv4 unicast
+           network 10.1.1.0/24
+           maximum-paths ibgp 4
+         address-family l2vpn evpn
+           advertise-pip
+         template peer SPINE-RR
+           remote-as 65000
+           update-source loopback0
+           address-family ipv4 unicast
+             send-community
+             send-community extended
+         neighbor 10.0.0.1
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-1
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         neighbor 10.0.0.2
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-2
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         vrf tenant-1
+           address-family ipv4 unicast
+             advertise l2vpn evpn
+             redistribute direct route-map PERMIT-ALL
+             aggregate-address 192.168.0.0/16
+             maximum-paths ibgp 4
+           neighbor 10.1.1.10
+             bfd
+             remote-as 65201
+             description master (Cilium BGP)
+             timers 10 30
+             address-family ipv4 unicast
+               send-community
+               send-community extended
+               route-map K8S-HOST-IN in
+               route-map K8S-HOST-OUT out
+               soft-reconfiguration inbound always
+       evpn
+         vni 10011 l2
+           rd auto
+           route-target import auto
+           route-target export auto
+       vrf context tenant-1
+         rd auto
+         address-family ipv4 unicast
+           route-target both auto
+           route-target both auto evpn
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: VRF tenant-1 present
+   [0;32m✓[0m Leaf-1: neighbor 10.1.1.10 configured
+   [0;32m✓[0m Leaf-1: K8S-HOST-IN route-map inbound
+   [0;32m✓[0m Leaf-1: K8S-HOST-OUT route-map outbound
+   [0;32m✓[0m Leaf-1: aggregate-address 192.168.0.0/16
+   [0;32m✓[0m Leaf-1: BFD CONFIGURED on neighbor (operational state not checked)
+
+[1m[0;34m── 5.Leaf-1.6 show ip bgp vrf tenant-1 192.168.0.0/16[0m
+   $ ssh admin@10.1.1.1 'show ip bgp vrf tenant-1 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP routing table entry for 192.168.0.0/16, version 144
+       Paths: (4 available, best #4)
+       Flags: (0x880c001a) (high32 0x000020) on xmit-list, is in urib, is best urib route, exported
+         vpn: version 168, (0x00000000100002) on xmit-list
+       Multipath: iBGP
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.13:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.13 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.3.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5009.0000.1b08
+             Originator: 10.0.0.13 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Weight, no labeled nexthop
+                    Imported from 10.0.0.12:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.12 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.2.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5008.0000.1b08
+             Originator: 10.0.0.12 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.14:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.14 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.4.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:500a.0000.1b08
+             Originator: 10.0.0.14 Cluster list: 10.0.0.1 
+       
+         Advertised path-id 1, VPN AF advertised path-id 1
+         Path type: aggregate, path is valid, is best path, no labeled nexthop, in rib, is extd
+         AS-Path: NONE, path locally originated
+           0.0.0.0 (metric 0) from 0.0.0.0 (10.1.1.1)
+             Origin IGP, MED not set, localpref 100, weight 32768
+             Aggregated by 10.1.1.1, aggregator AS 65000, atomic-aggregate set
+             Extcommunity: RT:65000:50001
+       
+         VRF advertise information:
+         Path-id 1 advertised to peers:
+           10.1.1.10      
+       
+         VPN AF advertise information:
+         Path-id 1 not advertised to any peer
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: 192.168.0.0/16 in BGP RIB
+   [0;32m✓[0m Leaf-1: 192.168.0.0/16 is locally-originated aggregate best path
+   [0;32m✓[0m Leaf-1: 192.168.0.0/16 advertised to 10.1.1.10
+
+[1m[0;34m── 5.Leaf-1.7 show running-config interface Vlan11[0m
+   $ ssh admin@10.1.1.1 'show running-config interface Vlan11'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config interface
+       !Running configuration last done at: Fri Apr 24 10:18:24 2026
+       !Time: Fri Apr 24 10:39:06 2026
+       
+       version 10.5(2) Bios:version  
+       
+       interface Vlan1
+       
+       interface Vlan11
+         description Rack-1 gateway (master 10.1.1.10)
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         bfd interval 200 min_rx 200 multiplier 3
+         no bfd echo
+         no ip redirects
+         ip address 10.1.1.1/24
+         no ipv6 redirects
+         fabric forwarding mode anycast-gateway
+       
+       interface Vlan3001
+         description tenant-1 L3VNI 50001 core VLAN
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         ip forward
+       
+       interface nve1
+         no shutdown
+         host-reachability protocol bgp
+         source-interface loopback0
+         member vni 10011
+           suppress-arp
+           ingress-replication protocol bgp
+         member vni 50001 associate-vrf
+       
+       interface Ethernet1/1
+         description to Spine-1 Eth1/1
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.1.1/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/2
+         description to Spine-2 Eth1/1
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.2.1/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/3
+         description rack-1 host: master ens4
+         switchport access vlan 11
+         spanning-tree port type edge
+         mtu 9216
+       
+       interface Ethernet1/4
+       
+       interface Ethernet1/5
+       
+       interface Ethernet1/6
+       
+       interface Ethernet1/7
+       
+       interface Ethernet1/8
+       
+       interface Ethernet1/9
+       
+       interface Ethernet1/10
+       
+       interface Ethernet1/11
+       
+       interface Ethernet1/12
+       
+       interface Ethernet1/13
+       
+       interface Ethernet1/14
+       
+       interface Ethernet1/15
+       
+       interface Ethernet1/16
+       
+       interface Ethernet1/17
+       
+       interface Ethernet1/18
+       
+       interface Ethernet1/19
+       
+       interface Ethernet1/20
+       
+       interface Ethernet1/21
+       
+       interface Ethernet1/22
+       
+       interface Ethernet1/23
+       
+       interface Ethernet1/24
+       
+       interface Ethernet1/25
+       
+       interface Ethernet1/26
+       
+       interface Ethernet1/27
+       
+       interface Ethernet1/28
+       
+       interface Ethernet1/29
+       
+       interface Ethernet1/30
+       
+       interface Ethernet1/31
+       
+       interface Ethernet1/32
+       
+       interface Ethernet1/33
+       
+       interface Ethernet1/34
+       
+       interface Ethernet1/35
+       
+       interface Ethernet1/36
+       
+       interface Ethernet1/37
+       
+       interface Ethernet1/38
+       
+       interface Ethernet1/39
+       
+       interface Ethernet1/40
+       
+       interface Ethernet1/41
+       
+       interface Ethernet1/42
+       
+       interface Ethernet1/43
+       
+       interface Ethernet1/44
+       
+       interface Ethernet1/45
+       
+       interface Ethernet1/46
+       
+       interface Ethernet1/47
+       
+       interface Ethernet1/48
+       
+       interface Ethernet1/49
+       
+       interface Ethernet1/50
+       
+       interface Ethernet1/51
+       
+       interface Ethernet1/52
+       
+       interface Ethernet1/53
+       
+       interface Ethernet1/54
+       
+       interface Ethernet1/55
+       
+       interface Ethernet1/56
+       
+       interface Ethernet1/57
+       
+       interface Ethernet1/58
+       
+       interface Ethernet1/59
+       
+       interface Ethernet1/60
+       
+       interface Ethernet1/61
+       
+       interface Ethernet1/62
+       
+       interface Ethernet1/63
+       
+       interface Ethernet1/64
+       
+       interface mgmt0
+         vrf member management
+       
+       interface loopback0
+         description BGP/OSPF router-id
+         ip address 10.0.0.11/32
+         ip router ospf 1 area 0.0.0.0
+   ┄┄┄
+   [0;32m✓[0m Leaf-1: Vlan11 has 'bfd interval' configured (state NOT checked)
+   [0;32m✓[0m Leaf-1: Vlan11 has 'no ip redirects' (required for BFD on real HW)
+
+[1m[0;34m────────── Leaf-2 (SVI 10.1.2.1, peer worker-1/65202) ──────────[0m
+[0;34m[i][0m running 10 show commands in a single SSH session
+
+[1m[0;34m── 5.Leaf-2.1 show bgp ipv4 unicast summary vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show bgp ipv4 unicast summary vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP summary information for VRF tenant-1, address family IPv4 Unicast
+       BGP router identifier 10.1.2.1, local AS number 65000
+       BGP table version is 159, IPv4 Unicast config peers 1, capable peers 1
+       12 network entries and 27 paths using 3024 bytes of memory
+       BGP attribute entries [16/5888], BGP AS path entries [4/24]
+       BGP community entries [0/0], BGP clusterlist entries [6/24]
+       4 received paths for inbound soft reconfiguration
+       0 identical, 4 modified, 0 filtered received paths using 64 bytes
+       
+       Neighbor        V    AS    MsgRcvd    MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+       10.1.2.10       4 65202       1009        998      159    0    0 00:19:59 4         
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: neighbor 10.1.2.10 present
+   [0;32m✓[0m Leaf-2: neighbor AS=65202
+   [0;32m✓[0m Leaf-2: session Established (PfxRcd numeric)
+   [0;32m✓[0m Leaf-2: PfxRcd >= 1 from host (FRR advertising VIPs)
+
+[1m[0;34m── 5.Leaf-2.2 show ip bgp vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show ip bgp vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP table version is 159, Local Router ID is 10.1.2.1
+       Status: s-suppressed, x-deleted, S-stale, d-dampened, h-history, *-valid, >-best
+       Path type: i-internal, e-external, c-confed, l-local, a-aggregate, r-redist, I-injected
+       Origin codes: i - IGP, e - EGP, ? - incomplete, | - multipath, & - backup, 2 - best2
+       
+          Network            Next Hop            Metric     LocPrf     Weight Path
+       *>i10.1.1.0/24        10.0.0.11                0        100          0 ?
+       *>i10.1.1.10/32       10.0.0.11                         100          0 i
+       *>r10.1.2.0/24        0.0.0.0                  0        100      32768 ?
+       *>i10.1.3.0/24        10.0.0.13                0        100          0 ?
+       *>i10.1.3.10/32       10.0.0.13                         100          0 i
+       *>i10.1.4.0/24        10.0.0.14                0        100          0 ?
+       *>i10.1.4.10/32       10.0.0.14                         100          0 i
+       * i192.168.0.0/16     10.0.0.13                         100          0 i
+       * i                   10.0.0.11                         100          0 i
+       * i                   10.0.0.14                         100          0 i
+       *>a                   0.0.0.0                           100      32768 i
+       *>e192.168.100.0/32   10.1.2.10                0                     0 65202 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.1/32   10.1.2.10                0                     0 65202 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.2/32   10.1.2.10                0                     0 65202 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.3/32   10.1.2.10                0                     0 65202 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 4 VIP /32(s) in BGP table (expected >= 4)
+   [0;32m✓[0m Leaf-2: local eBGP path present (*>e via host)
+
+[1m[0;34m── 5.Leaf-2.3.0 show ip route 192.168.100.0 vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show ip route 192.168.100.0 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.0/32, ubest/mbest: 1/0
+           *via 10.1.2.10, [20/0], 00:19:58, bgp-65000, external, tag 65202
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 192.168.100.0/32 next-hop 10.1.2.10 (local host)
+   [0;32m✓[0m Leaf-2: 192.168.100.0/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-2.3.1 show ip route 192.168.100.1 vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show ip route 192.168.100.1 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.1/32, ubest/mbest: 1/0
+           *via 10.1.2.10, [20/0], 00:19:58, bgp-65000, external, tag 65202
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 192.168.100.1/32 next-hop 10.1.2.10 (local host)
+   [0;32m✓[0m Leaf-2: 192.168.100.1/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-2.3.2 show ip route 192.168.100.2 vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show ip route 192.168.100.2 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.2/32, ubest/mbest: 1/0
+           *via 10.1.2.10, [20/0], 00:19:58, bgp-65000, external, tag 65202
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 192.168.100.2/32 next-hop 10.1.2.10 (local host)
+   [0;32m✓[0m Leaf-2: 192.168.100.2/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-2.3.3 show ip route 192.168.100.3 vrf tenant-1[0m
+   $ ssh admin@10.1.2.1 'show ip route 192.168.100.3 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.3/32, ubest/mbest: 1/0
+           *via 10.1.2.10, [20/0], 00:19:58, bgp-65000, external, tag 65202
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 192.168.100.3/32 next-hop 10.1.2.10 (local host)
+   [0;32m✓[0m Leaf-2: 192.168.100.3/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-2.4 show bgp l2vpn evpn | include 192.168.100[0m
+   $ ssh admin@10.1.2.1 'show bgp l2vpn evpn | include 192.168.100'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 16 type-5 EVPN entries for VIP /32s (expected >= 4)
+   [0;32m✓[0m Leaf-2: imports type-5 VIPs from peer VTEPs (* i)
+
+[1m[0;34m── 5.Leaf-2.5 show running-config bgp[0m
+   $ ssh admin@10.1.2.1 'show running-config bgp'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config bgp
+       !Running configuration last done at: Fri Apr 24 10:18:30 2026
+       !Time: Fri Apr 24 10:38:43 2026
+       
+       version 10.5(2) Bios:version  
+       feature bgp
+       
+       router bgp 65000
+         router-id 10.0.0.12
+         log-neighbor-changes
+         address-family ipv4 unicast
+           network 10.1.2.0/24
+           maximum-paths ibgp 4
+         address-family l2vpn evpn
+           advertise-pip
+         template peer SPINE-RR
+           remote-as 65000
+           update-source loopback0
+           address-family ipv4 unicast
+             send-community
+             send-community extended
+         neighbor 10.0.0.1
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-1
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         neighbor 10.0.0.2
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-2
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         vrf tenant-1
+           address-family ipv4 unicast
+             advertise l2vpn evpn
+             redistribute direct route-map PERMIT-ALL
+             aggregate-address 192.168.0.0/16
+             maximum-paths ibgp 4
+           neighbor 10.1.2.10
+             bfd
+             remote-as 65202
+             description worker-1 (Cilium BGP)
+             timers 10 30
+             address-family ipv4 unicast
+               send-community
+               send-community extended
+               route-map K8S-HOST-IN in
+               route-map K8S-HOST-OUT out
+               soft-reconfiguration inbound always
+       evpn
+         vni 10012 l2
+           rd auto
+           route-target import auto
+           route-target export auto
+       vrf context tenant-1
+         rd auto
+         address-family ipv4 unicast
+           route-target both auto
+           route-target both auto evpn
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: VRF tenant-1 present
+   [0;32m✓[0m Leaf-2: neighbor 10.1.2.10 configured
+   [0;32m✓[0m Leaf-2: K8S-HOST-IN route-map inbound
+   [0;32m✓[0m Leaf-2: K8S-HOST-OUT route-map outbound
+   [0;32m✓[0m Leaf-2: aggregate-address 192.168.0.0/16
+   [0;32m✓[0m Leaf-2: BFD CONFIGURED on neighbor (operational state not checked)
+
+[1m[0;34m── 5.Leaf-2.6 show ip bgp vrf tenant-1 192.168.0.0/16[0m
+   $ ssh admin@10.1.2.1 'show ip bgp vrf tenant-1 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP routing table entry for 192.168.0.0/16, version 158
+       Paths: (4 available, best #4)
+       Flags: (0x880c001a) (high32 0x000020) on xmit-list, is in urib, is best urib route, exported
+         vpn: version 189, (0x00000000100002) on xmit-list
+       Multipath: iBGP
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.13:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.13 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.3.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5009.0000.1b08
+             Originator: 10.0.0.13 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Weight, no labeled nexthop
+                    Imported from 10.0.0.11:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.11 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.1.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5007.0000.1b08
+             Originator: 10.0.0.11 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.14:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.14 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.4.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:500a.0000.1b08
+             Originator: 10.0.0.14 Cluster list: 10.0.0.1 
+       
+         Advertised path-id 1, VPN AF advertised path-id 1
+         Path type: aggregate, path is valid, is best path, no labeled nexthop, in rib, is extd
+         AS-Path: NONE, path locally originated
+           0.0.0.0 (metric 0) from 0.0.0.0 (10.1.2.1)
+             Origin IGP, MED not set, localpref 100, weight 32768
+             Aggregated by 10.1.2.1, aggregator AS 65000, atomic-aggregate set
+             Extcommunity: RT:65000:50001
+       
+         VRF advertise information:
+         Path-id 1 advertised to peers:
+           10.1.2.10      
+       
+         VPN AF advertise information:
+         Path-id 1 not advertised to any peer
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: 192.168.0.0/16 in BGP RIB
+   [0;32m✓[0m Leaf-2: 192.168.0.0/16 is locally-originated aggregate best path
+   [0;32m✓[0m Leaf-2: 192.168.0.0/16 advertised to 10.1.2.10
+
+[1m[0;34m── 5.Leaf-2.7 show running-config interface Vlan12[0m
+   $ ssh admin@10.1.2.1 'show running-config interface Vlan12'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config interface
+       !Running configuration last done at: Fri Apr 24 10:18:30 2026
+       !Time: Fri Apr 24 10:38:43 2026
+       
+       version 10.5(2) Bios:version  
+       
+       interface Vlan1
+       
+       interface Vlan12
+         description Rack-2 gateway (worker-1 10.1.2.10)
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         bfd interval 200 min_rx 200 multiplier 3
+         no bfd echo
+         no ip redirects
+         ip address 10.1.2.1/24
+         no ipv6 redirects
+         fabric forwarding mode anycast-gateway
+       
+       interface Vlan3001
+         description tenant-1 L3VNI 50001 core VLAN
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         ip forward
+       
+       interface nve1
+         no shutdown
+         host-reachability protocol bgp
+         source-interface loopback0
+         member vni 10012
+           suppress-arp
+           ingress-replication protocol bgp
+         member vni 50001 associate-vrf
+       
+       interface Ethernet1/1
+         description to Spine-1 Eth1/2
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.1.3/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/2
+         description to Spine-2 Eth1/2
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.2.3/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/3
+         description rack-2 host: worker-1 ens4
+         switchport access vlan 12
+         spanning-tree port type edge
+         mtu 9216
+       
+       interface Ethernet1/4
+       
+       interface Ethernet1/5
+       
+       interface Ethernet1/6
+       
+       interface Ethernet1/7
+       
+       interface Ethernet1/8
+       
+       interface Ethernet1/9
+       
+       interface Ethernet1/10
+       
+       interface Ethernet1/11
+       
+       interface Ethernet1/12
+       
+       interface Ethernet1/13
+       
+       interface Ethernet1/14
+       
+       interface Ethernet1/15
+       
+       interface Ethernet1/16
+       
+       interface Ethernet1/17
+       
+       interface Ethernet1/18
+       
+       interface Ethernet1/19
+       
+       interface Ethernet1/20
+       
+       interface Ethernet1/21
+       
+       interface Ethernet1/22
+       
+       interface Ethernet1/23
+       
+       interface Ethernet1/24
+       
+       interface Ethernet1/25
+       
+       interface Ethernet1/26
+       
+       interface Ethernet1/27
+       
+       interface Ethernet1/28
+       
+       interface Ethernet1/29
+       
+       interface Ethernet1/30
+       
+       interface Ethernet1/31
+       
+       interface Ethernet1/32
+       
+       interface Ethernet1/33
+       
+       interface Ethernet1/34
+       
+       interface Ethernet1/35
+       
+       interface Ethernet1/36
+       
+       interface Ethernet1/37
+       
+       interface Ethernet1/38
+       
+       interface Ethernet1/39
+       
+       interface Ethernet1/40
+       
+       interface Ethernet1/41
+       
+       interface Ethernet1/42
+       
+       interface Ethernet1/43
+       
+       interface Ethernet1/44
+       
+       interface Ethernet1/45
+       
+       interface Ethernet1/46
+       
+       interface Ethernet1/47
+       
+       interface Ethernet1/48
+       
+       interface Ethernet1/49
+       
+       interface Ethernet1/50
+       
+       interface Ethernet1/51
+       
+       interface Ethernet1/52
+       
+       interface Ethernet1/53
+       
+       interface Ethernet1/54
+       
+       interface Ethernet1/55
+       
+       interface Ethernet1/56
+       
+       interface Ethernet1/57
+       
+       interface Ethernet1/58
+       
+       interface Ethernet1/59
+       
+       interface Ethernet1/60
+       
+       interface Ethernet1/61
+       
+       interface Ethernet1/62
+       
+       interface Ethernet1/63
+       
+       interface Ethernet1/64
+       
+       interface mgmt0
+         vrf member management
+       
+       interface loopback0
+         description BGP/OSPF router-id
+         ip address 10.0.0.12/32
+         ip router ospf 1 area 0.0.0.0
+   ┄┄┄
+   [0;32m✓[0m Leaf-2: Vlan12 has 'bfd interval' configured (state NOT checked)
+   [0;32m✓[0m Leaf-2: Vlan12 has 'no ip redirects' (required for BFD on real HW)
+
+[1m[0;34m────────── Leaf-3 (SVI 10.1.3.1, peer worker-2/65203) ──────────[0m
+[0;34m[i][0m running 10 show commands in a single SSH session
+
+[1m[0;34m── 5.Leaf-3.1 show bgp ipv4 unicast summary vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show bgp ipv4 unicast summary vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP summary information for VRF tenant-1, address family IPv4 Unicast
+       BGP router identifier 10.1.3.1, local AS number 65000
+       BGP table version is 153, IPv4 Unicast config peers 1, capable peers 1
+       12 network entries and 27 paths using 3024 bytes of memory
+       BGP attribute entries [16/5888], BGP AS path entries [4/24]
+       BGP community entries [0/0], BGP clusterlist entries [6/24]
+       4 received paths for inbound soft reconfiguration
+       0 identical, 4 modified, 0 filtered received paths using 64 bytes
+       
+       Neighbor        V    AS    MsgRcvd    MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+       10.1.3.10       4 65203       1009        998      153    0    0 00:20:00 4         
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: neighbor 10.1.3.10 present
+   [0;32m✓[0m Leaf-3: neighbor AS=65203
+   [0;32m✓[0m Leaf-3: session Established (PfxRcd numeric)
+   [0;32m✓[0m Leaf-3: PfxRcd >= 1 from host (FRR advertising VIPs)
+
+[1m[0;34m── 5.Leaf-3.2 show ip bgp vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show ip bgp vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP table version is 153, Local Router ID is 10.1.3.1
+       Status: s-suppressed, x-deleted, S-stale, d-dampened, h-history, *-valid, >-best
+       Path type: i-internal, e-external, c-confed, l-local, a-aggregate, r-redist, I-injected
+       Origin codes: i - IGP, e - EGP, ? - incomplete, | - multipath, & - backup, 2 - best2
+       
+          Network            Next Hop            Metric     LocPrf     Weight Path
+       *>i10.1.1.0/24        10.0.0.11                0        100          0 ?
+       *>i10.1.1.10/32       10.0.0.11                         100          0 i
+       *>i10.1.2.0/24        10.0.0.12                0        100          0 ?
+       *>i10.1.2.10/32       10.0.0.12                         100          0 i
+       *>r10.1.3.0/24        0.0.0.0                  0        100      32768 ?
+       *>i10.1.4.0/24        10.0.0.14                0        100          0 ?
+       *>i10.1.4.10/32       10.0.0.14                         100          0 i
+       * i192.168.0.0/16     10.0.0.14                         100          0 i
+       * i                   10.0.0.12                         100          0 i
+       * i                   10.0.0.11                         100          0 i
+       *>a                   0.0.0.0                           100      32768 i
+       *>e192.168.100.0/32   10.1.3.10                0                     0 65203 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       *>e192.168.100.1/32   10.1.3.10                0                     0 65203 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       *>e192.168.100.2/32   10.1.3.10                0                     0 65203 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       *>e192.168.100.3/32   10.1.3.10                0                     0 65203 ?
+       * i                   10.0.0.14                0        100          0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 4 VIP /32(s) in BGP table (expected >= 4)
+   [0;32m✓[0m Leaf-3: local eBGP path present (*>e via host)
+
+[1m[0;34m── 5.Leaf-3.3.0 show ip route 192.168.100.0 vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show ip route 192.168.100.0 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.0/32, ubest/mbest: 1/0
+           *via 10.1.3.10, [20/0], 00:19:59, bgp-65000, external, tag 65203
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 192.168.100.0/32 next-hop 10.1.3.10 (local host)
+   [0;32m✓[0m Leaf-3: 192.168.100.0/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-3.3.1 show ip route 192.168.100.1 vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show ip route 192.168.100.1 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.1/32, ubest/mbest: 1/0
+           *via 10.1.3.10, [20/0], 00:19:59, bgp-65000, external, tag 65203
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 192.168.100.1/32 next-hop 10.1.3.10 (local host)
+   [0;32m✓[0m Leaf-3: 192.168.100.1/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-3.3.2 show ip route 192.168.100.2 vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show ip route 192.168.100.2 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.2/32, ubest/mbest: 1/0
+           *via 10.1.3.10, [20/0], 00:19:59, bgp-65000, external, tag 65203
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 192.168.100.2/32 next-hop 10.1.3.10 (local host)
+   [0;32m✓[0m Leaf-3: 192.168.100.2/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-3.3.3 show ip route 192.168.100.3 vrf tenant-1[0m
+   $ ssh admin@10.1.3.1 'show ip route 192.168.100.3 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.3/32, ubest/mbest: 1/0
+           *via 10.1.3.10, [20/0], 00:19:59, bgp-65000, external, tag 65203
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 192.168.100.3/32 next-hop 10.1.3.10 (local host)
+   [0;32m✓[0m Leaf-3: 192.168.100.3/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-3.4 show bgp l2vpn evpn | include 192.168.100[0m
+   $ ssh admin@10.1.3.1 'show bgp l2vpn evpn | include 192.168.100'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 16 type-5 EVPN entries for VIP /32s (expected >= 4)
+   [0;32m✓[0m Leaf-3: imports type-5 VIPs from peer VTEPs (* i)
+
+[1m[0;34m── 5.Leaf-3.5 show running-config bgp[0m
+   $ ssh admin@10.1.3.1 'show running-config bgp'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config bgp
+       !Running configuration last done at: Fri Apr 24 10:18:59 2026
+       !Time: Fri Apr 24 10:39:13 2026
+       
+       version 10.5(2) Bios:version  
+       feature bgp
+       
+       router bgp 65000
+         router-id 10.0.0.13
+         log-neighbor-changes
+         address-family ipv4 unicast
+           network 10.1.3.0/24
+           maximum-paths ibgp 4
+         address-family l2vpn evpn
+           advertise-pip
+         template peer SPINE-RR
+           remote-as 65000
+           update-source loopback0
+           address-family ipv4 unicast
+             send-community
+             send-community extended
+         neighbor 10.0.0.1
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-1
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         neighbor 10.0.0.2
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-2
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         vrf tenant-1
+           address-family ipv4 unicast
+             advertise l2vpn evpn
+             redistribute direct route-map PERMIT-ALL
+             aggregate-address 192.168.0.0/16
+             maximum-paths ibgp 4
+           neighbor 10.1.3.10
+             bfd
+             remote-as 65203
+             description worker-2 (Cilium BGP)
+             timers 10 30
+             address-family ipv4 unicast
+               send-community
+               send-community extended
+               route-map K8S-HOST-IN in
+               route-map K8S-HOST-OUT out
+               soft-reconfiguration inbound always
+       evpn
+         vni 10013 l2
+           rd auto
+           route-target import auto
+           route-target export auto
+       vrf context tenant-1
+         rd auto
+         address-family ipv4 unicast
+           route-target both auto
+           route-target both auto evpn
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: VRF tenant-1 present
+   [0;32m✓[0m Leaf-3: neighbor 10.1.3.10 configured
+   [0;32m✓[0m Leaf-3: K8S-HOST-IN route-map inbound
+   [0;32m✓[0m Leaf-3: K8S-HOST-OUT route-map outbound
+   [0;32m✓[0m Leaf-3: aggregate-address 192.168.0.0/16
+   [0;32m✓[0m Leaf-3: BFD CONFIGURED on neighbor (operational state not checked)
+
+[1m[0;34m── 5.Leaf-3.6 show ip bgp vrf tenant-1 192.168.0.0/16[0m
+   $ ssh admin@10.1.3.1 'show ip bgp vrf tenant-1 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP routing table entry for 192.168.0.0/16, version 152
+       Paths: (4 available, best #4)
+       Flags: (0x880c001a) (high32 0x000020) on xmit-list, is in urib, is best urib route, exported
+         vpn: version 186, (0x00000000100002) on xmit-list
+       Multipath: iBGP
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.14:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.14 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.4.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:500a.0000.1b08
+             Originator: 10.0.0.14 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.12:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.12 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.2.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5008.0000.1b08
+             Originator: 10.0.0.12 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Weight, no labeled nexthop
+                    Imported from 10.0.0.11:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.11 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.1.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5007.0000.1b08
+             Originator: 10.0.0.11 Cluster list: 10.0.0.1 
+       
+         Advertised path-id 1, VPN AF advertised path-id 1
+         Path type: aggregate, path is valid, is best path, no labeled nexthop, in rib, is extd
+         AS-Path: NONE, path locally originated
+           0.0.0.0 (metric 0) from 0.0.0.0 (10.1.3.1)
+             Origin IGP, MED not set, localpref 100, weight 32768
+             Aggregated by 10.1.3.1, aggregator AS 65000, atomic-aggregate set
+             Extcommunity: RT:65000:50001
+       
+         VRF advertise information:
+         Path-id 1 advertised to peers:
+           10.1.3.10      
+       
+         VPN AF advertise information:
+         Path-id 1 not advertised to any peer
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: 192.168.0.0/16 in BGP RIB
+   [0;32m✓[0m Leaf-3: 192.168.0.0/16 is locally-originated aggregate best path
+   [0;32m✓[0m Leaf-3: 192.168.0.0/16 advertised to 10.1.3.10
+
+[1m[0;34m── 5.Leaf-3.7 show running-config interface Vlan13[0m
+   $ ssh admin@10.1.3.1 'show running-config interface Vlan13'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config interface
+       !Running configuration last done at: Fri Apr 24 10:18:59 2026
+       !Time: Fri Apr 24 10:39:13 2026
+       
+       version 10.5(2) Bios:version  
+       
+       interface Vlan1
+       
+       interface Vlan13
+         description Rack-3 gateway (worker-2 10.1.3.10)
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         bfd interval 200 min_rx 200 multiplier 3
+         no bfd echo
+         no ip redirects
+         ip address 10.1.3.1/24
+         no ipv6 redirects
+         fabric forwarding mode anycast-gateway
+       
+       interface Vlan3001
+         description tenant-1 L3VNI 50001 core VLAN
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         ip forward
+       
+       interface nve1
+         no shutdown
+         host-reachability protocol bgp
+         source-interface loopback0
+         member vni 10013
+           suppress-arp
+           ingress-replication protocol bgp
+         member vni 50001 associate-vrf
+       
+       interface Ethernet1/1
+         description to Spine-1 Eth1/3
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.1.5/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/2
+         description to Spine-2 Eth1/3
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.2.5/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/3
+         description rack-3 host: worker-2 ens4
+         switchport access vlan 13
+         spanning-tree port type edge
+         mtu 9216
+       
+       interface Ethernet1/4
+       
+       interface Ethernet1/5
+       
+       interface Ethernet1/6
+       
+       interface Ethernet1/7
+       
+       interface Ethernet1/8
+       
+       interface Ethernet1/9
+       
+       interface Ethernet1/10
+       
+       interface Ethernet1/11
+       
+       interface Ethernet1/12
+       
+       interface Ethernet1/13
+       
+       interface Ethernet1/14
+       
+       interface Ethernet1/15
+       
+       interface Ethernet1/16
+       
+       interface Ethernet1/17
+       
+       interface Ethernet1/18
+       
+       interface Ethernet1/19
+       
+       interface Ethernet1/20
+       
+       interface Ethernet1/21
+       
+       interface Ethernet1/22
+       
+       interface Ethernet1/23
+       
+       interface Ethernet1/24
+       
+       interface Ethernet1/25
+       
+       interface Ethernet1/26
+       
+       interface Ethernet1/27
+       
+       interface Ethernet1/28
+       
+       interface Ethernet1/29
+       
+       interface Ethernet1/30
+       
+       interface Ethernet1/31
+       
+       interface Ethernet1/32
+       
+       interface Ethernet1/33
+       
+       interface Ethernet1/34
+       
+       interface Ethernet1/35
+       
+       interface Ethernet1/36
+       
+       interface Ethernet1/37
+       
+       interface Ethernet1/38
+       
+       interface Ethernet1/39
+       
+       interface Ethernet1/40
+       
+       interface Ethernet1/41
+       
+       interface Ethernet1/42
+       
+       interface Ethernet1/43
+       
+       interface Ethernet1/44
+       
+       interface Ethernet1/45
+       
+       interface Ethernet1/46
+       
+       interface Ethernet1/47
+       
+       interface Ethernet1/48
+       
+       interface Ethernet1/49
+       
+       interface Ethernet1/50
+       
+       interface Ethernet1/51
+       
+       interface Ethernet1/52
+       
+       interface Ethernet1/53
+       
+       interface Ethernet1/54
+       
+       interface Ethernet1/55
+       
+       interface Ethernet1/56
+       
+       interface Ethernet1/57
+       
+       interface Ethernet1/58
+       
+       interface Ethernet1/59
+       
+       interface Ethernet1/60
+       
+       interface Ethernet1/61
+       
+       interface Ethernet1/62
+       
+       interface Ethernet1/63
+       
+       interface Ethernet1/64
+       
+       interface mgmt0
+         vrf member management
+       
+       interface loopback0
+         description BGP/OSPF router-id
+         ip address 10.0.0.13/32
+         ip router ospf 1 area 0.0.0.0
+   ┄┄┄
+   [0;32m✓[0m Leaf-3: Vlan13 has 'bfd interval' configured (state NOT checked)
+   [0;32m✓[0m Leaf-3: Vlan13 has 'no ip redirects' (required for BFD on real HW)
+
+[1m[0;34m────────── Leaf-4 (SVI 10.1.4.1, peer worker-3/65204) ──────────[0m
+[0;34m[i][0m running 10 show commands in a single SSH session
+
+[1m[0;34m── 5.Leaf-4.1 show bgp ipv4 unicast summary vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show bgp ipv4 unicast summary vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP summary information for VRF tenant-1, address family IPv4 Unicast
+       BGP router identifier 10.1.4.1, local AS number 65000
+       BGP table version is 169, IPv4 Unicast config peers 1, capable peers 1
+       12 network entries and 27 paths using 3024 bytes of memory
+       BGP attribute entries [16/5888], BGP AS path entries [4/24]
+       BGP community entries [0/0], BGP clusterlist entries [6/24]
+       4 received paths for inbound soft reconfiguration
+       0 identical, 4 modified, 0 filtered received paths using 64 bytes
+       
+       Neighbor        V    AS    MsgRcvd    MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+       10.1.4.10       4 65204       1009        997      169    0    0 00:20:01 4         
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: neighbor 10.1.4.10 present
+   [0;32m✓[0m Leaf-4: neighbor AS=65204
+   [0;32m✓[0m Leaf-4: session Established (PfxRcd numeric)
+   [0;32m✓[0m Leaf-4: PfxRcd >= 1 from host (FRR advertising VIPs)
+
+[1m[0;34m── 5.Leaf-4.2 show ip bgp vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show ip bgp vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP table version is 169, Local Router ID is 10.1.4.1
+       Status: s-suppressed, x-deleted, S-stale, d-dampened, h-history, *-valid, >-best
+       Path type: i-internal, e-external, c-confed, l-local, a-aggregate, r-redist, I-injected
+       Origin codes: i - IGP, e - EGP, ? - incomplete, | - multipath, & - backup, 2 - best2
+       
+          Network            Next Hop            Metric     LocPrf     Weight Path
+       *>i10.1.1.0/24        10.0.0.11                0        100          0 ?
+       *>i10.1.1.10/32       10.0.0.11                         100          0 i
+       *>i10.1.2.0/24        10.0.0.12                0        100          0 ?
+       *>i10.1.2.10/32       10.0.0.12                         100          0 i
+       *>i10.1.3.0/24        10.0.0.13                0        100          0 ?
+       *>i10.1.3.10/32       10.0.0.13                         100          0 i
+       *>r10.1.4.0/24        0.0.0.0                  0        100      32768 ?
+       * i192.168.0.0/16     10.0.0.13                         100          0 i
+       * i                   10.0.0.12                         100          0 i
+       * i                   10.0.0.11                         100          0 i
+       *>a                   0.0.0.0                           100      32768 i
+       *>e192.168.100.0/32   10.1.4.10                0                     0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.1/32   10.1.4.10                0                     0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.2/32   10.1.4.10                0                     0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+       *>e192.168.100.3/32   10.1.4.10                0                     0 65204 ?
+       * i                   10.0.0.11                0        100          0 65201 ?
+       * i                   10.0.0.12                0        100          0 65202 ?
+       * i                   10.0.0.13                0        100          0 65203 ?
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 4 VIP /32(s) in BGP table (expected >= 4)
+   [0;32m✓[0m Leaf-4: local eBGP path present (*>e via host)
+
+[1m[0;34m── 5.Leaf-4.3.0 show ip route 192.168.100.0 vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show ip route 192.168.100.0 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.0/32, ubest/mbest: 1/0
+           *via 10.1.4.10, [20/0], 00:20:01, bgp-65000, external, tag 65204
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 192.168.100.0/32 next-hop 10.1.4.10 (local host)
+   [0;32m✓[0m Leaf-4: 192.168.100.0/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-4.3.1 show ip route 192.168.100.1 vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show ip route 192.168.100.1 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.1/32, ubest/mbest: 1/0
+           *via 10.1.4.10, [20/0], 00:20:01, bgp-65000, external, tag 65204
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 192.168.100.1/32 next-hop 10.1.4.10 (local host)
+   [0;32m✓[0m Leaf-4: 192.168.100.1/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-4.3.2 show ip route 192.168.100.2 vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show ip route 192.168.100.2 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.2/32, ubest/mbest: 1/0
+           *via 10.1.4.10, [20/0], 00:20:01, bgp-65000, external, tag 65204
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 192.168.100.2/32 next-hop 10.1.4.10 (local host)
+   [0;32m✓[0m Leaf-4: 192.168.100.2/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-4.3.3 show ip route 192.168.100.3 vrf tenant-1[0m
+   $ ssh admin@10.1.4.1 'show ip route 192.168.100.3 vrf tenant-1'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       IP Route Table for VRF "tenant-1"
+       '*' denotes best ucast next-hop
+       '**' denotes best mcast next-hop
+       '[x/y]' denotes [preference/metric]
+       '%<string>' in via output denotes VRF <string>
+       
+       192.168.100.3/32, ubest/mbest: 1/0
+           *via 10.1.4.10, [20/0], 00:20:01, bgp-65000, external, tag 65204
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 192.168.100.3/32 next-hop 10.1.4.10 (local host)
+   [0;32m✓[0m Leaf-4: 192.168.100.3/32 bgp-65000 external
+
+[1m[0;34m── 5.Leaf-4.4 show bgp l2vpn evpn | include 192.168.100[0m
+   $ ssh admin@10.1.4.1 'show bgp l2vpn evpn | include 192.168.100'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       * i[5]:[0]:[0]:[32]:[192.168.100.3]/224
+       *>l[5]:[0]:[0]:[32]:[192.168.100.0]/224
+       *>l[5]:[0]:[0]:[32]:[192.168.100.1]/224
+       *>l[5]:[0]:[0]:[32]:[192.168.100.2]/224
+       *>l[5]:[0]:[0]:[32]:[192.168.100.3]/224
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 16 type-5 EVPN entries for VIP /32s (expected >= 4)
+   [0;32m✓[0m Leaf-4: imports type-5 VIPs from peer VTEPs (* i)
+
+[1m[0;34m── 5.Leaf-4.5 show running-config bgp[0m
+   $ ssh admin@10.1.4.1 'show running-config bgp'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config bgp
+       !Running configuration last done at: Fri Apr 24 10:18:38 2026
+       !Time: Fri Apr 24 10:38:48 2026
+       
+       version 10.5(2) Bios:version  
+       feature bgp
+       
+       router bgp 65000
+         router-id 10.0.0.14
+         log-neighbor-changes
+         address-family ipv4 unicast
+           network 10.1.4.0/24
+           maximum-paths ibgp 4
+         address-family l2vpn evpn
+           advertise-pip
+         template peer SPINE-RR
+           remote-as 65000
+           update-source loopback0
+           address-family ipv4 unicast
+             send-community
+             send-community extended
+         neighbor 10.0.0.1
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-1
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         neighbor 10.0.0.2
+           inherit peer SPINE-RR
+           remote-as 65000
+           description Spine-2
+           address-family l2vpn evpn
+             send-community
+             send-community extended
+         vrf tenant-1
+           address-family ipv4 unicast
+             advertise l2vpn evpn
+             redistribute direct route-map PERMIT-ALL
+             aggregate-address 192.168.0.0/16
+             maximum-paths ibgp 4
+           neighbor 10.1.4.10
+             bfd
+             remote-as 65204
+             description worker-3 (Cilium BGP)
+             timers 10 30
+             address-family ipv4 unicast
+               send-community
+               send-community extended
+               route-map K8S-HOST-IN in
+               route-map K8S-HOST-OUT out
+               soft-reconfiguration inbound always
+       evpn
+         vni 10014 l2
+           rd auto
+           route-target import auto
+           route-target export auto
+       vrf context tenant-1
+         rd auto
+         address-family ipv4 unicast
+           route-target both auto
+           route-target both auto evpn
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: VRF tenant-1 present
+   [0;32m✓[0m Leaf-4: neighbor 10.1.4.10 configured
+   [0;32m✓[0m Leaf-4: K8S-HOST-IN route-map inbound
+   [0;32m✓[0m Leaf-4: K8S-HOST-OUT route-map outbound
+   [0;32m✓[0m Leaf-4: aggregate-address 192.168.0.0/16
+   [0;32m✓[0m Leaf-4: BFD CONFIGURED on neighbor (operational state not checked)
+
+[1m[0;34m── 5.Leaf-4.6 show ip bgp vrf tenant-1 192.168.0.0/16[0m
+   $ ssh admin@10.1.4.1 'show ip bgp vrf tenant-1 192.168.0.0/16'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       BGP routing table information for VRF tenant-1, address family IPv4 Unicast
+       BGP routing table entry for 192.168.0.0/16, version 169
+       Paths: (4 available, best #4)
+       Flags: (0x880c001a) (high32 0x000020) on xmit-list, is in urib, is best urib route, exported
+         vpn: version 193, (0x00000000100002) on xmit-list
+       Multipath: iBGP
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.13:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.13 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.3.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5009.0000.1b08
+             Originator: 10.0.0.13 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Router Id, no labeled nexthop
+                    Imported from 10.0.0.12:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.12 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.2.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5008.0000.1b08
+             Originator: 10.0.0.12 Cluster list: 10.0.0.1 
+       
+         Path type: internal, path is valid, not best reason: Weight, no labeled nexthop
+                    Imported from 10.0.0.11:4:[5]:[0]:[0]:[16]:[192.168.0.0]/224 
+         AS-Path: NONE, path sourced internal to AS
+           10.0.0.11 (metric 81) from 10.0.0.1 (10.0.0.1)
+             Origin IGP, MED not set, localpref 100, weight 0
+             Aggregated by 10.1.1.1, aggregator AS 65000, atomic-aggregate set
+             Received label 50001
+             Extcommunity: RT:65000:50001 ENCAP:8 Router MAC:5007.0000.1b08
+             Originator: 10.0.0.11 Cluster list: 10.0.0.1 
+       
+         Advertised path-id 1, VPN AF advertised path-id 1
+         Path type: aggregate, path is valid, is best path, no labeled nexthop, in rib, is extd
+         AS-Path: NONE, path locally originated
+           0.0.0.0 (metric 0) from 0.0.0.0 (10.1.4.1)
+             Origin IGP, MED not set, localpref 100, weight 32768
+             Aggregated by 10.1.4.1, aggregator AS 65000, atomic-aggregate set
+             Extcommunity: RT:65000:50001
+       
+         VRF advertise information:
+         Path-id 1 advertised to peers:
+           10.1.4.10      
+       
+         VPN AF advertise information:
+         Path-id 1 not advertised to any peer
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: 192.168.0.0/16 in BGP RIB
+   [0;32m✓[0m Leaf-4: 192.168.0.0/16 is locally-originated aggregate best path
+   [0;32m✓[0m Leaf-4: 192.168.0.0/16 advertised to 10.1.4.10
+
+[1m[0;34m── 5.Leaf-4.7 show running-config interface Vlan14[0m
+   $ ssh admin@10.1.4.1 'show running-config interface Vlan14'
+   ┄┄┄ raw output ┄┄┄
+       Warning: No NTP peer/server configured. Time may be out of sync.
+       Time source is NTP
+       
+       !Command: show running-config interface
+       !Running configuration last done at: Fri Apr 24 10:18:38 2026
+       !Time: Fri Apr 24 10:38:48 2026
+       
+       version 10.5(2) Bios:version  
+       
+       interface Vlan1
+       
+       interface Vlan14
+         description Rack-4 gateway (worker-3 10.1.4.10)
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         bfd interval 200 min_rx 200 multiplier 3
+         no bfd echo
+         no ip redirects
+         ip address 10.1.4.1/24
+         no ipv6 redirects
+         fabric forwarding mode anycast-gateway
+       
+       interface Vlan3001
+         description tenant-1 L3VNI 50001 core VLAN
+         no shutdown
+         mtu 9216
+         vrf member tenant-1
+         ip forward
+       
+       interface nve1
+         no shutdown
+         host-reachability protocol bgp
+         source-interface loopback0
+         member vni 10014
+           suppress-arp
+           ingress-replication protocol bgp
+         member vni 50001 associate-vrf
+       
+       interface Ethernet1/1
+         description to Spine-1 Eth1/4
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.1.7/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/2
+         description to Spine-2 Eth1/4
+         no switchport
+         mtu 9216
+         medium p2p
+         ip address 10.100.2.7/31
+         ip ospf network point-to-point
+         ip router ospf 1 area 0.0.0.0
+         no shutdown
+       
+       interface Ethernet1/3
+         description rack-4 host: worker-3 ens4
+         switchport access vlan 14
+         spanning-tree port type edge
+         mtu 9216
+       
+       interface Ethernet1/4
+       
+       interface Ethernet1/5
+       
+       interface Ethernet1/6
+       
+       interface Ethernet1/7
+       
+       interface Ethernet1/8
+       
+       interface Ethernet1/9
+       
+       interface Ethernet1/10
+       
+       interface Ethernet1/11
+       
+       interface Ethernet1/12
+       
+       interface Ethernet1/13
+       
+       interface Ethernet1/14
+       
+       interface Ethernet1/15
+       
+       interface Ethernet1/16
+       
+       interface Ethernet1/17
+       
+       interface Ethernet1/18
+       
+       interface Ethernet1/19
+       
+       interface Ethernet1/20
+       
+       interface Ethernet1/21
+       
+       interface Ethernet1/22
+       
+       interface Ethernet1/23
+       
+       interface Ethernet1/24
+       
+       interface Ethernet1/25
+       
+       interface Ethernet1/26
+       
+       interface Ethernet1/27
+       
+       interface Ethernet1/28
+       
+       interface Ethernet1/29
+       
+       interface Ethernet1/30
+       
+       interface Ethernet1/31
+       
+       interface Ethernet1/32
+       
+       interface Ethernet1/33
+       
+       interface Ethernet1/34
+       
+       interface Ethernet1/35
+       
+       interface Ethernet1/36
+       
+       interface Ethernet1/37
+       
+       interface Ethernet1/38
+       
+       interface Ethernet1/39
+       
+       interface Ethernet1/40
+       
+       interface Ethernet1/41
+       
+       interface Ethernet1/42
+       
+       interface Ethernet1/43
+       
+       interface Ethernet1/44
+       
+       interface Ethernet1/45
+       
+       interface Ethernet1/46
+       
+       interface Ethernet1/47
+       
+       interface Ethernet1/48
+       
+       interface Ethernet1/49
+       
+       interface Ethernet1/50
+       
+       interface Ethernet1/51
+       
+       interface Ethernet1/52
+       
+       interface Ethernet1/53
+       
+       interface Ethernet1/54
+       
+       interface Ethernet1/55
+       
+       interface Ethernet1/56
+       
+       interface Ethernet1/57
+       
+       interface Ethernet1/58
+       
+       interface Ethernet1/59
+       
+       interface Ethernet1/60
+       
+       interface Ethernet1/61
+       
+       interface Ethernet1/62
+       
+       interface Ethernet1/63
+       
+       interface Ethernet1/64
+       
+       interface mgmt0
+         vrf member management
+       
+       interface loopback0
+         description BGP/OSPF router-id
+         ip address 10.0.0.14/32
+         ip router ospf 1 area 0.0.0.0
+   ┄┄┄
+   [0;32m✓[0m Leaf-4: Vlan14 has 'bfd interval' configured (state NOT checked)
+   [0;32m✓[0m Leaf-4: Vlan14 has 'no ip redirects' (required for BFD on real HW)
+
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+  [1m[0;35mSummary[0m
+[1m[0;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+   Passed: [1m[0;32m191 / 191[0m
+   Failed: [1m[0;31m0 / 191[0m
+   Transcript: /home/user/migrate_bgp_to_leaf/validate-frr-bgp-20260424-104754.log
+
+  [1m[0;32mALL CHECKS PASSED[0m
+  [0;33m(BFD operational state intentionally skipped — virtual NX-OS limitation)[0m

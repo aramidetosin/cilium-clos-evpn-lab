@@ -1,0 +1,78 @@
+# 4 CiliumBGPClusterConfigs, one per node. Overwrites the full-mesh
+# configs that share these names (bgp-master, bgp-worker-[1-3]).
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: bgp-master
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: master
+  bgpInstances:
+  - name: instance-master
+    localASN: 65201
+    localPort: 179
+    peers:
+    - name: leaf
+      peerASN: 65000
+      peerAddress: 10.1.1.1
+      peerConfigRef:
+        name: cluster-peer
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: bgp-worker-1
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: worker-1
+  bgpInstances:
+  - name: instance-worker-1
+    localASN: 65202
+    localPort: 179
+    peers:
+    - name: leaf
+      peerASN: 65000
+      peerAddress: 10.1.2.1
+      peerConfigRef:
+        name: cluster-peer
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: bgp-worker-2
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: worker-2
+  bgpInstances:
+  - name: instance-worker-2
+    localASN: 65203
+    localPort: 179
+    peers:
+    - name: leaf
+      peerASN: 65000
+      peerAddress: 10.1.3.1
+      peerConfigRef:
+        name: cluster-peer
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: bgp-worker-3
+spec:
+  nodeSelector:
+    matchLabels:
+      kubernetes.io/hostname: worker-3
+  bgpInstances:
+  - name: instance-worker-3
+    localASN: 65204
+    localPort: 179
+    peers:
+    - name: leaf
+      peerASN: 65000
+      peerAddress: 10.1.4.1
+      peerConfigRef:
+        name: cluster-peer

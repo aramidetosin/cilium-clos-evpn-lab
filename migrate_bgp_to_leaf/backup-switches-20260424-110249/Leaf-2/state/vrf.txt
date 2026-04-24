@@ -1,0 +1,11 @@
+! =====================================================
+! Host:     Leaf-2 (10.1.2.1)
+! Command:  show vrf
+! Captured: 2026-04-24T11:04:50+00:00
+! =====================================================
+
+VRF-Name                           VRF-ID State   Reason                        
+default                                 1 Up      --                            
+egress-loadbalance-resolution-          3 Up      --                            
+management                              2 Up      --                            
+tenant-1                                4 Up      --                            

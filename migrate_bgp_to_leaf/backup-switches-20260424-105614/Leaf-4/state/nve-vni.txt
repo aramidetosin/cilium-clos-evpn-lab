@@ -1,0 +1,18 @@
+! =====================================================
+! Host:     Leaf-4 (10.1.4.1)
+! Command:  show nve vni
+! Captured: 2026-04-24T10:56:19+00:00
+! =====================================================
+
+Codes: CP - Control Plane        DP - Data Plane          
+       UC - Unconfigured         SA - Suppress ARP        
+       S-ND - Suppress ND        
+       SU - Suppress Unknown Unicast 
+       Xconn - Crossconnect      
+       MS-IR - Multisite Ingress Replication 
+       HYB - Hybrid IRB mode
+    
+Interface VNI      Multicast-group   State Mode Type [BD/VRF]      Flags
+--------- -------- ----------------- ----- ---- ------------------ -----
+nve1      10014    UnicastBGP        Up    CP   L2 [14]            SA   
+nve1      50001    n/a               Up    CP   L3 [tenant-1]           

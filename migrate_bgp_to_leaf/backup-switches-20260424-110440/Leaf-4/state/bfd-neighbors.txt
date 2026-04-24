@@ -1,0 +1,29 @@
+! =====================================================
+! Host:     Leaf-4 (10.1.4.1)
+! Command:  show bfd neighbors vrf tenant-1 details
+! Captured: 2026-04-24T11:04:44+00:00
+! =====================================================
+
+
+OurAddr         NeighAddr       LD/RD                 RH/RS           Holdown(mult)     State       Int                   Vrf                              Type     BSID           
+10.1.4.1        10.1.4.10       1090519043/0          Down            N/A(3)            Down        Vlan14                tenant-1                         SH       N/A            
+
+Session state is Down and not using echo function
+
+Session type: Singlehop
+Local Diag: 0, Demand mode: 0, Poll bit: 0, Authentication: None
+MinTxInt: 2000000 us, MinRxInt: 2000000 us, Multiplier: 3
+Received MinRxInt: 0 us, Received Multiplier: 3
+Holdown (hits): 0 ms (0), Hello (hits): 2000 ms (1159)
+Rx Count: 0, Rx Interval (ms) min/max/avg: 0/0/0 last: 2186988 ms ago
+Tx Count: 1159, Tx Interval (ms) min/max/avg: 1882/1882/1882 last: 133 ms ago
+Registered protocols:  bgp
+Downtime: 0 days 0 hrs 36 mins 25 secs, Downcount: 0
+Last packet: Version: 0                - Diagnostic: 0  
+             State bit: AdminDown      - Demand bit: 0  
+             Poll bit: 0               - Final bit: 0  
+             Multiplier: 3             - Length: 24  
+             My Discr.: 0              - Your Discr.: 0  
+             Min tx interval: 0        - Min rx interval: 0  
+             Min Echo interval: 0      - Authentication bit: 0  
+Hosting LC: 1, Down reason: No Diagnostic, Reason not-hosted: None

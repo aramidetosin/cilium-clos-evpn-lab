@@ -1,0 +1,46 @@
+! =====================================================
+! Host:     Leaf-3 (10.1.3.1)
+! Command:  show ip route vrf tenant-1
+! Captured: 2026-04-24T10:56:18+00:00
+! =====================================================
+
+IP Route Table for VRF "tenant-1"
+'*' denotes best ucast next-hop
+'**' denotes best mcast next-hop
+'[x/y]' denotes [preference/metric]
+'%<string>' in via output denotes VRF <string>
+
+10.1.1.0/24, ubest/mbest: 1/0
+    *via 10.0.0.11%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000b encap: VXLAN
+ 
+10.1.1.10/32, ubest/mbest: 1/0
+    *via 10.0.0.11%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000b encap: VXLAN
+ 
+10.1.2.0/24, ubest/mbest: 1/0
+    *via 10.0.0.12%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000c encap: VXLAN
+ 
+10.1.2.10/32, ubest/mbest: 1/0
+    *via 10.0.0.12%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000c encap: VXLAN
+ 
+10.1.3.0/24, ubest/mbest: 1/0, attached
+    *via 10.1.3.1, Vlan13, [0/0], 1d18h, direct
+10.1.3.1/32, ubest/mbest: 1/0, attached
+    *via 10.1.3.1, Vlan13, [0/0], 1d18h, local
+10.1.3.10/32, ubest/mbest: 1/0, attached
+    *via 10.1.3.10, Vlan13, [190/0], 00:37:55, hmm
+10.1.4.0/24, ubest/mbest: 1/0
+    *via 10.0.0.14%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000e encap: VXLAN
+ 
+10.1.4.10/32, ubest/mbest: 1/0
+    *via 10.0.0.14%default, [200/0], 02:53:15, bgp-65000, internal, tag 65000, segid: 50001 tunnelid: 0xa00000e encap: VXLAN
+ 
+192.168.0.0/16, ubest/mbest: 1/0
+    *via Null0, [220/0], 00:28:02, bgp-65000, discard, tag 65000
+192.168.100.0/32, ubest/mbest: 1/0
+    *via 10.1.3.10, [20/0], 00:28:05, bgp-65000, external, tag 65203
+192.168.100.1/32, ubest/mbest: 1/0
+    *via 10.1.3.10, [20/0], 00:28:05, bgp-65000, external, tag 65203
+192.168.100.2/32, ubest/mbest: 1/0
+    *via 10.1.3.10, [20/0], 00:28:05, bgp-65000, external, tag 65203
+192.168.100.3/32, ubest/mbest: 1/0
+    *via 10.1.3.10, [20/0], 00:28:05, bgp-65000, external, tag 65203

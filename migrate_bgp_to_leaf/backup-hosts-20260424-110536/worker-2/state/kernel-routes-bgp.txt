@@ -1,0 +1,4 @@
+# $ ip -4 route show proto bgp
+# 2026-04-24T11:05:38+00:00
+
+192.168.0.0/16 nhid 34 via 10.1.3.1 dev ens4 metric 20 

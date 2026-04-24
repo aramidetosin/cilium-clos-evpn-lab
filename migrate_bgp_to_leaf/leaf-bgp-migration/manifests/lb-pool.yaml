@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: ai-vip-pool
+spec:
+  blocks:
+  - cidr: 192.168.100.0/24
+  serviceSelector:
+    matchExpressions:
+    - key: io.kubernetes.service.namespace
+      operator: NotIn
+      values: [kube-system, kube-public]

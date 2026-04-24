@@ -1,0 +1,13 @@
+# $ systemctl status vip-sync --no-pager --lines=0
+# 2026-04-24T11:05:37+00:00
+
+● vip-sync.service - VIP sync (Kubernetes LoadBalancer IPs -> lo)
+     Loaded: loaded (/etc/systemd/system/vip-sync.service; enabled; preset: enabled)
+     Active: active (running) since Fri 2026-04-24 10:14:54 UTC; 50min ago
+   Main PID: 67189 (bash)
+      Tasks: 2 (limit: 19093)
+     Memory: 4.8M (peak: 21.3M)
+        CPU: 9.790s
+     CGroup: /system.slice/vip-sync.service
+             ├─67189 bash /usr/local/bin/vip-sync.sh
+             └─72469 sleep 30

@@ -1,0 +1,23 @@
+! =====================================================
+! Host:     Leaf-2 (10.1.2.1)
+! Command:  show mac address-table
+! Captured: 2026-04-24T11:04:50+00:00
+! =====================================================
+
+Legend: 
+	* - primary entry, G - Gateway MAC, (R) - Routed MAC, O - Overlay MAC
+	age - seconds since last seen,+ - primary entry using vPC Peer-Link,
+	(T) - True, (F) - False, C - ControlPlane MAC, ~ - vsan,
+	(NA)- Not Applicable A - ESI Active Path, S - ESI Standby Path
+	TL - True Learned, PS - Peer Sync, RO - Re-originate 
+   VLAN     MAC Address      Type      age     Secure NTFY Ports
+---------+-----------------+--------+---------+------+----+------------------
+*   12     5000.0002.0001   dynamic  NA         F      F    Eth1/3
+* 3001     5007.0000.1b08   static   -         F      F    nve1(10.0.0.11)
+* 3001     5008.0000.1b08   static   -         F      F    Vlan3001
+* 3001     5009.0000.1b08   static   -         F      F    nve1
+* 3001     500a.0000.1b08   static   -         F      F    nve1(10.0.0.14)
+G    -     2020.0000.00aa   static   -         F      F    sup-eth1(R)
+G    -     5008.0000.1b08   static   -         F      F    sup-eth1(R)
+G   12     5008.0000.1b08   static   -         F      F    sup-eth1(R)
+G 3001     5008.0000.1b08   static   -         F      F    sup-eth1(R)

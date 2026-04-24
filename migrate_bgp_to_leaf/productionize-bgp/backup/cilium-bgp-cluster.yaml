@@ -1,0 +1,185 @@
+apiVersion: v1
+items:
+- apiVersion: cilium.io/v2
+  kind: CiliumBGPClusterConfig
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"cilium.io/v2alpha1","kind":"CiliumBGPClusterConfig","metadata":{"annotations":{},"name":"bgp-master"},"spec":{"bgpInstances":[{"localASN":65201,"localPort":179,"name":"instance-master","peers":[{"name":"leaf","peerASN":65000,"peerAddress":"10.1.1.1","peerConfigRef":{"name":"cluster-peer"}}]}],"nodeSelector":{"matchLabels":{"kubernetes.io/hostname":"master"}}}}
+    creationTimestamp: "2026-04-22T12:58:52Z"
+    generation: 2
+    name: bgp-master
+    resourceVersion: "326111"
+    uid: f3eccaf9-13d5-4cab-8eba-5a58a94d9ca3
+  spec:
+    bgpInstances:
+    - localASN: 65201
+      localPort: 179
+      name: instance-master
+      peers:
+      - name: leaf
+        peerASN: 65000
+        peerAddress: 10.1.1.1
+        peerConfigRef:
+          name: cluster-peer
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: master
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: ConflictingClusterConfigs
+      status: "False"
+      type: cilium.io/ConflictingClusterConfig
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: MissingPeerConfigs
+      status: "False"
+      type: cilium.io/MissingPeerConfigs
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "False"
+      type: cilium.io/NoMatchingNode
+- apiVersion: cilium.io/v2
+  kind: CiliumBGPClusterConfig
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"cilium.io/v2alpha1","kind":"CiliumBGPClusterConfig","metadata":{"annotations":{},"name":"bgp-worker-1"},"spec":{"bgpInstances":[{"localASN":65202,"localPort":179,"name":"instance-worker-1","peers":[{"name":"leaf","peerASN":65000,"peerAddress":"10.1.2.1","peerConfigRef":{"name":"cluster-peer"}}]}],"nodeSelector":{"matchLabels":{"kubernetes.io/hostname":"worker-1"}}}}
+    creationTimestamp: "2026-04-22T12:58:52Z"
+    generation: 2
+    name: bgp-worker-1
+    resourceVersion: "326114"
+    uid: cd9dccfd-8446-4fc9-b8c2-631c6a0a9098
+  spec:
+    bgpInstances:
+    - localASN: 65202
+      localPort: 179
+      name: instance-worker-1
+      peers:
+      - name: leaf
+        peerASN: 65000
+        peerAddress: 10.1.2.1
+        peerConfigRef:
+          name: cluster-peer
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: worker-1
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: ConflictingClusterConfigs
+      status: "False"
+      type: cilium.io/ConflictingClusterConfig
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: MissingPeerConfigs
+      status: "False"
+      type: cilium.io/MissingPeerConfigs
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "False"
+      type: cilium.io/NoMatchingNode
+- apiVersion: cilium.io/v2
+  kind: CiliumBGPClusterConfig
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"cilium.io/v2alpha1","kind":"CiliumBGPClusterConfig","metadata":{"annotations":{},"name":"bgp-worker-2"},"spec":{"bgpInstances":[{"localASN":65203,"localPort":179,"name":"instance-worker-2","peers":[{"name":"leaf","peerASN":65000,"peerAddress":"10.1.3.1","peerConfigRef":{"name":"cluster-peer"}}]}],"nodeSelector":{"matchLabels":{"kubernetes.io/hostname":"worker-2"}}}}
+    creationTimestamp: "2026-04-22T12:58:52Z"
+    generation: 2
+    name: bgp-worker-2
+    resourceVersion: "326117"
+    uid: 1747ac53-cf03-4abe-8b3e-e74055b58987
+  spec:
+    bgpInstances:
+    - localASN: 65203
+      localPort: 179
+      name: instance-worker-2
+      peers:
+      - name: leaf
+        peerASN: 65000
+        peerAddress: 10.1.3.1
+        peerConfigRef:
+          name: cluster-peer
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: worker-2
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: ConflictingClusterConfigs
+      status: "False"
+      type: cilium.io/ConflictingClusterConfig
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: MissingPeerConfigs
+      status: "False"
+      type: cilium.io/MissingPeerConfigs
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "False"
+      type: cilium.io/NoMatchingNode
+- apiVersion: cilium.io/v2
+  kind: CiliumBGPClusterConfig
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"cilium.io/v2alpha1","kind":"CiliumBGPClusterConfig","metadata":{"annotations":{},"name":"bgp-worker-3"},"spec":{"bgpInstances":[{"localASN":65204,"localPort":179,"name":"instance-worker-3","peers":[{"name":"leaf","peerASN":65000,"peerAddress":"10.1.4.1","peerConfigRef":{"name":"cluster-peer"}}]}],"nodeSelector":{"matchLabels":{"kubernetes.io/hostname":"worker-3"}}}}
+    creationTimestamp: "2026-04-22T12:58:52Z"
+    generation: 2
+    name: bgp-worker-3
+    resourceVersion: "326119"
+    uid: 344f4259-e4a8-4931-9aa3-17b066b6da79
+  spec:
+    bgpInstances:
+    - localASN: 65204
+      localPort: 179
+      name: instance-worker-3
+      peers:
+      - name: leaf
+        peerASN: 65000
+        peerAddress: 10.1.4.1
+        peerConfigRef:
+          name: cluster-peer
+    nodeSelector:
+      matchLabels:
+        kubernetes.io/hostname: worker-3
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: ConflictingClusterConfigs
+      status: "False"
+      type: cilium.io/ConflictingClusterConfig
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: ""
+      observedGeneration: 2
+      reason: MissingPeerConfigs
+      status: "False"
+      type: cilium.io/MissingPeerConfigs
+    - lastTransitionTime: "2026-04-22T12:58:52Z"
+      message: No node matches spec.nodeSelector
+      observedGeneration: 2
+      reason: NoMatchingNode
+      status: "False"
+      type: cilium.io/NoMatchingNode
+kind: List
+metadata:
+  resourceVersion: ""

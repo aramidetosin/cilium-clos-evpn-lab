@@ -155,9 +155,6 @@ Every claim in the blog series links back to a specific log here.
 ### Prerequisites
 
 - EVE-NG Community or Pro with Nexus 9000v image (tested on 10.5.2)
-- Parallels Desktop or equivalent hypervisor for 4 Ubuntu 24.04 ARM64 VMs
-- 16 GB RAM minimum; 32 GB comfortable
-- macOS or Linux workstation
 
 ### Build order
 
